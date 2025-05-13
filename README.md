@@ -1,1 +1,1 @@
-Signaling, SFU and WebRTC gateway in go
+Signaling server, SFU and WebRTC gateway in go
