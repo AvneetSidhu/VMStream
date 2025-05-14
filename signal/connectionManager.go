@@ -2,11 +2,14 @@ package main
 
 import (
 	"sync"
+
 	"github.com/gorilla/websocket"
 )
 
-var mu sync.Mutex
-var clients = make(map[string] *websocket.Conn) // map of client_id to connection
+var (
+	mu      sync.Mutex
+	clients = make(map[string]*websocket.Conn) // map of client_id to connection
+)
 
 func addClient(clientID string, conn *websocket.Conn) {
 	mu.Lock()
