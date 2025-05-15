@@ -6,10 +6,10 @@ import (
 	"net/http"
 )
 
-type Body struct {
+type Request struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
-	Auth     string `json:"auth, omitempty"`
+	Auth     string `json:"auth,omitempty"`
 }
 
 type Response struct {
@@ -24,19 +24,48 @@ func writeJSONError(w http.ResponseWriter, status int, err error) {
 	json.NewEncoder(w).Encode(Response{Message: err.Error()})
 }
 
-func decodeBody(r *http.Request) (Body, error) {
-	var body Body
+func decodeBody(r *http.Request) (Request, error) {
+	var body Request
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		return Body{}, err
+		return Request{}, err
 	}
 	if body.Username == "" || body.Password == "" {
-		return Body{}, fmt.Errorf("missing required fields: username or password")
+		return Request{}, fmt.Errorf("missing required fields: username or password")
 	}
 	return body, nil
 }
 
-func connect(w http.ResponseWriter, r *http.Request) {
+func pionConnect(w http.ResponseWriter, r *http.Request) {
+	clientID := r.URL.Query().Get("client_id")
+	auth := r.URL.Query().Get("auth")
+	if clientID == "" || auth == "" {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("missing required fields: client_id or auth"))
+		return
+	}
+	extractedUsername, err := validateJWTToken(auth)
+	if err != nil {
+		writeJSONError(w, http.StatusUnauthorized, fmt.Errorf("invalid auth token"))
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
+		return
+	}
+	if pionName != extractedUsername {
+		writeJSONError(w, http.StatusUnauthorized, fmt.Errorf("client ID does not match token username"))
+		return
+	}
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		fmt.Println("Error upgrading connection:", err)
+		return
+	}
+	go pionMessageLoop(conn) // start Pion message loop
+	fmt.Println("Pion connected:", clientID)
+}
+
+func clientConnect(w http.ResponseWriter, r *http.Request) {
 	clientID := r.URL.Query().Get("client_id")
 	auth := r.URL.Query().Get("auth")
 	if clientID == "" || auth == "" {
@@ -60,7 +89,7 @@ func connect(w http.ResponseWriter, r *http.Request) {
 	}
 	addClient(r.URL.Query().Get("client_id"), conn) // add client to connection manager
 	fmt.Println("Client connected:", r.URL.Query().Get("client_id"))
-	messageLoop(conn) // start message loop
+	go clientMessageLoop(conn) // start message loop
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +175,8 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/connect", connect)
+	http.HandleFunc("/connect", clientConnect)
+	http.HandleFunc("/pion", pionConnect)
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/register", register)
 	fmt.Println("Server started at :8080")

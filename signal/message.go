@@ -1,16 +1,25 @@
 package main
 
 import (
-	"fmt"
 	"bytes"
 	"encoding/json"
+	"fmt"
 )
 
 type Message struct {
 	Type string `json:"type"`
 	ClientID string `json:"client_id"`
-	Payload string `json:"payload"`
+	Payload json.RawMessage `json:"payload"`
 	Auth string `json:"auth"`
+}
+
+func createErrorMessage(err error) (Message) {
+	return Message{
+		Type: "error",
+		ClientID: "",
+		Payload: json.RawMessage(fmt.Sprintf(`{"error": "%s"}`, err.Error())),
+		Auth: "",
+	}
 }
 
 func decodeMessage(msgBytes []byte) (Message, error) {
@@ -28,7 +37,7 @@ func checkFields(msg Message) (error) {
 	if msg.ClientID == "" {
 		return fmt.Errorf("missing or empty field: client_id")
 	}
-	if msg.Payload == "" {
+	if len(msg.Payload) == 0 {
 		return fmt.Errorf("missing or empty field: payload")
 	}
 	if msg.Auth == "" {

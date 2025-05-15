@@ -9,6 +9,7 @@ import (
 )
 
 var jwtsecret = os.Getenv("JWT_SECRET")
+var pionName = os.Getenv("PION_NAME")
 
 func hashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)

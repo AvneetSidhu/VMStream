@@ -4,7 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
+	"time"
+
 	"github.com/gorilla/websocket"
+)
+
+var (
+	mu      sync.RWMutex
+	clients = make(map[string]*websocket.Conn) // map of client_id to connection
 )
 
 var upgrader = websocket.Upgrader{
@@ -13,12 +21,25 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+func addClient(clientID string, conn *websocket.Conn) {
+	mu.Lock()
+	defer mu.Unlock()
+	clients[clientID] = conn
+}
+
+func removeClient(clientID string) {
+	mu.Lock()
+	defer mu.Unlock()
+	if conn, ok := clients[clientID]; ok {
+		conn.Close()
+		delete(clients, clientID)
+	}
+}
+
 func handleMessage(msg Message) error {
 	// msgType, clientId, payload := msg.Type, msg.ClientID, msg.Payload
 	return nil
 	// switch type {
-	// case "register":
-	// 	registerMsg(msg)
 	// case "offer":
 	// case "answer":
 	// case "ice_candidate":
@@ -32,7 +53,56 @@ func messageLoopCleanup(conn *websocket.Conn) {
 	fmt.Println("Client disconnected:", clientID)
 }
 
-func messageLoop(conn *websocket.Conn) {
+func pionReadLoop(conn *websocket.Conn) {
+	for {
+		_, msgBytes, err := conn.ReadMessage()
+		if err != nil {
+			fmt.Println("Error reading message:", err)
+			break
+		}
+
+		decodedMsg, decodeErr := decodeMessage(msgBytes) // decode message
+		if decodeErr != nil {
+			fmt.Println("Error decoding message:", decodeErr)
+			break
+		}
+
+		fieldsErr := checkFields(decodedMsg) // check message is correctly formed before decoding
+		if fieldsErr != nil {
+			fmt.Println("Error checking fields:", fieldsErr)
+			break
+		}
+
+		fmt.Printf("Received message: %+v\n\n", decodedMsg)
+
+		err = handleMessage(decodedMsg) // handle message
+		if err != nil {
+			fmt.Println("Error handling message:", err)
+			break
+		}
+	}
+}
+
+func pionWriteLoop(conn *websocket.Conn) {
+	for {
+		// Here you would typically send messages to the client
+		// For example, sending a ping message every 10 seconds
+		err := conn.WriteMessage(websocket.PingMessage, []byte("ping"))
+		if err != nil {
+			fmt.Println("Error writing message:", err)
+			break
+		}
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func pionMessageLoop(conn *websocket.Conn) {
+	go pionReadLoop(conn) // start Pion read loop
+	go pionWriteLoop(conn) // start Pion write loop
+	defer messageLoopCleanup(conn) // cleanup on exit
+}
+
+func clientMessageLoop(conn *websocket.Conn) {
 	defer messageLoopCleanup(conn) // cleanup on exit
 	for {
 		_, msgBytes, err := conn.ReadMessage()
@@ -46,12 +116,7 @@ func messageLoop(conn *websocket.Conn) {
 
 		if decodeErr != nil {
 			fmt.Println("Error decoding message:", decodeErr)
-			errorMsg := Message{
-				Type:     "error",
-				ClientID: "",
-				Payload:  "Error decoding message:" + decodeErr.Error(),
-			}
-			errorMsgBytes, _ := json.Marshal(errorMsg)
+			errorMsgBytes, _ := json.Marshal(createErrorMessage(decodeErr))
 			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
 			break
 		}
@@ -60,12 +125,7 @@ func messageLoop(conn *websocket.Conn) {
 
 		if fieldsErr != nil {
 			fmt.Println("Error checking fields:", fieldsErr)
-			errorMsg := Message{
-				Type:     "error",
-				ClientID: "",
-				Payload:  "Error checking fields: " + fieldsErr.Error(),
-			}
-			errorMsgBytes, _ := json.Marshal(errorMsg)
+			errorMsgBytes, _ := json.Marshal(createErrorMessage(fieldsErr))
 			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
 			break
 		}
@@ -76,12 +136,7 @@ func messageLoop(conn *websocket.Conn) {
 
 		if handlingErr != nil {
 			fmt.Println("Error handling message:", handlingErr)
-			errorMsg := Message{
-				Type:     "error",
-				ClientID: decodedMsg.ClientID,
-				Payload:  "Error handling message: " + handlingErr.Error(),
-			}
-			errorMsgBytes, _ := json.Marshal(errorMsg)
+			errorMsgBytes, _ := json.Marshal(createErrorMessage(handlingErr))
 			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
 			break
 		}
