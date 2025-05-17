@@ -52,6 +52,22 @@ func messageLoopCleanup(conn *websocket.Conn) {
 	fmt.Println("Client disconnected:", clientID)
 }
 
+func broadcastMessage() {
+	for msg := range fromPion {
+		mu.RLock()
+		conn, ok := clients[msg.ClientID]
+		mu.RUnlock()
+		if !ok {
+			fmt.Println("Client not found:", msg.ClientID)
+			continue
+		}
+
+		if err := conn.WriteJSON(msg); err != nil {
+			fmt.Printf("Error writing message to client %s: %v\n", msg.ClientID, err)
+		}
+	}
+}
+
 func pionReadLoop(conn *websocket.Conn) {
 	for {
 		_, msgBytes, err := conn.ReadMessage()
@@ -69,6 +85,13 @@ func pionReadLoop(conn *websocket.Conn) {
 		fieldsErr := checkFields(decodedMsg) // check message is correctly formed before decoding
 		if fieldsErr != nil {
 			fmt.Println("Error checking fields:", fieldsErr)
+			break
+		}
+
+		if !validateClientToken(decodedMsg.ClientID, decodedMsg.Auth) {
+			fmt.Println("Invalid client token for user:", decodedMsg.ClientID)
+			errorMsgBytes, _ := json.Marshal(createErrorMessage(fmt.Errorf("invalid client token")))
+			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
 			break
 		}
 
@@ -95,6 +118,7 @@ func pionWriteLoop(conn *websocket.Conn) {
 func pionMessageLoop(conn *websocket.Conn) {
 	go pionReadLoop(conn) // start Pion read loop
 	go pionWriteLoop(conn) // start Pion write loop
+	go broadcastMessage() // start broadcast loop 
 }
 
 func clientMessageLoop(conn *websocket.Conn) {
@@ -126,6 +150,12 @@ func clientMessageLoop(conn *websocket.Conn) {
 		}
 
 		// fmt.Printf("Received message: %+v\n\n", decodedMsg)
+		if !validateClientToken(decodedMsg.ClientID, decodedMsg.Auth) {
+			fmt.Println("Invalid client token for user:", decodedMsg.ClientID)
+			errorMsgBytes, _ := json.Marshal(createErrorMessage(fmt.Errorf("invalid client token")))
+			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
+			break
+		}
 
 		handlingErr := handleMessage(decodedMsg) // handle message
 

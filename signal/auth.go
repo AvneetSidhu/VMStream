@@ -2,15 +2,11 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
-
-var jwtsecret = os.Getenv("JWT_SECRET")
-var pionName = os.Getenv("PION_NAME")
 
 func hashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -34,14 +30,14 @@ func checkPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
-func generateJWTToken(username string) (string, error) {
+func generateJWTToken(clientID string) (string, error) {
 	claims := jwt.MapClaims{
-		"username": username,
+		"client_id": clientID,
 		"exp":      jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	return token.SignedString([]byte(jwtsecret))
+	return token.SignedString([]byte(JWT_SECRET))
 }
 
 func validateJWTToken(tokenString string) (string, error) {
@@ -49,7 +45,7 @@ func validateJWTToken(tokenString string) (string, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(jwtsecret), nil
+		return []byte(JWT_SECRET), nil
 	})
 
 	if err != nil {
@@ -57,8 +53,8 @@ func validateJWTToken(tokenString string) (string, error) {
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		username := claims["username"].(string)
-		return username, nil
+		clientID := claims["client_id"].(string)
+		return clientID, nil
 	}
 
 	return "", fmt.Errorf("invalid token")

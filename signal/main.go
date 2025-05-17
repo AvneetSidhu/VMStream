@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Request struct {
@@ -17,6 +20,9 @@ type Response struct {
 	Token   string `json:"token,omitempty"`
 	Data    string `json:"data,omitempty"`
 }
+
+var PION_NAME string
+var JWT_SECRET string
 
 func writeJSONError(w http.ResponseWriter, status int, err error) {
 	w.Header().Set("Content-Type", "application/json")
@@ -39,24 +45,22 @@ func decodeBody(r *http.Request) (Request, error) {
 func pionConnect(w http.ResponseWriter, r *http.Request) {
 	clientID := r.URL.Query().Get("client_id")
 	auth := r.URL.Query().Get("auth")
-	extractedUsername, err := validateJWTToken(auth)
-	if err != nil {
+	if !validatePionToken(auth) {
 		writeJSONError(w, http.StatusUnauthorized, fmt.Errorf("invalid auth token"))
 		return
 	}
+
 	if r.Method != http.MethodGet {
 		writeJSONError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
 		return
 	}
-	if pionName != extractedUsername {
-		writeJSONError(w, http.StatusUnauthorized, fmt.Errorf("client ID does not match token username"))
-		return
-	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		fmt.Println("Error upgrading connection:", err)
 		return
 	}
+
 	pionMessageLoop(conn) // start Pion message loop
 	fmt.Println("Pion connected:", clientID)
 }
@@ -69,11 +73,11 @@ func clientConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	extractedUsername, err := validateJWTToken(auth)
-	if extractedUsername != clientID || err != nil {
+	if !validateClientToken(clientID, auth) {
 		writeJSONError(w, http.StatusUnauthorized, fmt.Errorf("invalid auth token"))
 		return
 	}
+
 	if r.Method != http.MethodGet {
 		writeJSONError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
 		return
@@ -171,8 +175,12 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	godotenv.Load()
+	fmt.Println("Loading environment variables...")
+	JWT_SECRET = os.Getenv("JWT_SECRET")
+	PION_NAME = os.Getenv("PION_NAME")
 	http.HandleFunc("/connect", clientConnect)
-	http.HandleFunc("/pionConnect", pionConnect)
+	http.HandleFunc("/pion-connect", pionConnect)
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/register", register)
 	fmt.Println("Server started at :8080")
