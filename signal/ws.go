@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -75,31 +74,27 @@ func pionReadLoop(conn *websocket.Conn) {
 
 		fmt.Printf("Received message: %+v\n\n", decodedMsg)
 
-		err = handleMessage(decodedMsg) // handle message
-		if err != nil {
+		handleErr := handleMessage(decodedMsg) // handle message
+		if handleErr != nil {
 			fmt.Println("Error handling message:", err)
 			break
 		}
+		fromPion <- &decodedMsg // broadcast to clients 
 	}
 }
 
 func pionWriteLoop(conn *websocket.Conn) {
-	for {
-		// Here you would typically send messages to the client
-		// For example, sending a ping message every 10 seconds
-		err := conn.WriteMessage(websocket.PingMessage, []byte("ping"))
-		if err != nil {
+	for msg := range toPion {
+		if err := conn.WriteJSON(msg); err != nil {
 			fmt.Println("Error writing message:", err)
 			break
 		}
-		time.Sleep(10 * time.Second)
 	}
 }
 
 func pionMessageLoop(conn *websocket.Conn) {
 	go pionReadLoop(conn) // start Pion read loop
 	go pionWriteLoop(conn) // start Pion write loop
-	defer messageLoopCleanup(conn) // cleanup on exit
 }
 
 func clientMessageLoop(conn *websocket.Conn) {
@@ -130,7 +125,7 @@ func clientMessageLoop(conn *websocket.Conn) {
 			break
 		}
 
-		fmt.Printf("Received message: %+v\n\n", decodedMsg)
+		// fmt.Printf("Received message: %+v\n\n", decodedMsg)
 
 		handlingErr := handleMessage(decodedMsg) // handle message
 
@@ -140,5 +135,7 @@ func clientMessageLoop(conn *websocket.Conn) {
 			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
 			break
 		}
+
+		toPion <- &decodedMsg // broadcast to Pion
 	}
 }

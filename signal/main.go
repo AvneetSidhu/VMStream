@@ -39,10 +39,6 @@ func decodeBody(r *http.Request) (Request, error) {
 func pionConnect(w http.ResponseWriter, r *http.Request) {
 	clientID := r.URL.Query().Get("client_id")
 	auth := r.URL.Query().Get("auth")
-	if clientID == "" || auth == "" {
-		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("missing required fields: client_id or auth"))
-		return
-	}
 	extractedUsername, err := validateJWTToken(auth)
 	if err != nil {
 		writeJSONError(w, http.StatusUnauthorized, fmt.Errorf("invalid auth token"))
@@ -61,7 +57,7 @@ func pionConnect(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Error upgrading connection:", err)
 		return
 	}
-	go pionMessageLoop(conn) // start Pion message loop
+	pionMessageLoop(conn) // start Pion message loop
 	fmt.Println("Pion connected:", clientID)
 }
 
@@ -74,7 +70,7 @@ func clientConnect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	extractedUsername, err := validateJWTToken(auth)
-	if extractedUsername != clientID {
+	if extractedUsername != clientID || err != nil {
 		writeJSONError(w, http.StatusUnauthorized, fmt.Errorf("invalid auth token"))
 		return
 	}
@@ -176,7 +172,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/connect", clientConnect)
-	http.HandleFunc("/pion", pionConnect)
+	http.HandleFunc("/pionConnect", pionConnect)
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/register", register)
 	fmt.Println("Server started at :8080")

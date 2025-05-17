@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 	"time"
-	"golang.org/x/crypto/bcrypt"
+
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var jwtsecret = os.Getenv("JWT_SECRET")
@@ -30,10 +31,7 @@ func getHashedPassword(username string) (string, error) {
 
 func checkPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func generateJWTToken(username string) (string, error) {

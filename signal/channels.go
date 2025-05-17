@@ -1,4 +1,4 @@
 package main
 
-var pionOut = make(chan *Message)
-var pionIn = make(chan *Message)
+var fromPion = make(chan *Message) // channel for messages from pion
+var toPion = make(chan *Message)   // channel for messages to pion
