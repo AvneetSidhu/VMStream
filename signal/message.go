@@ -10,7 +10,7 @@ type Message struct {
 	Type string `json:"type"`
 	ClientID string `json:"client_id"`
 	Payload json.RawMessage `json:"payload"`
-	Auth string `json:"auth"`
+	// Auth string `json:"auth"`
 }
 
 func createErrorMessage(err error) (Message) {
@@ -18,14 +18,14 @@ func createErrorMessage(err error) (Message) {
 		Type: "error",
 		ClientID: "",
 		Payload: json.RawMessage(fmt.Sprintf(`{"error": "%s"}`, err.Error())),
-		Auth: "",
+		// Auth: "",
 	}
 }
 
 func decodeMessage(msgBytes []byte) (Message, error) {
 	var msg Message
 	decoder := json.NewDecoder(bytes.NewReader(msgBytes))	
-	decoder.DisallowUnknownFields()
+	decoder.DisallowUnknownFields() 
 	err := decoder.Decode(&msg)
 	return msg, err
 }	
@@ -40,9 +40,9 @@ func checkFields(msg Message) (error) {
 	if len(msg.Payload) == 0 {
 		return fmt.Errorf("missing or empty field: payload")
 	}
-	if msg.Auth == "" {
-		return fmt.Errorf("missing or empty field: auth")
-	}
+	// if msg.Auth == "" {
+	// 	return fmt.Errorf("missing or empty field: auth")
+	// }
 	return nil
 }
 

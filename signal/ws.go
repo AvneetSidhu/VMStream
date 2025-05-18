@@ -88,13 +88,6 @@ func pionReadLoop(conn *websocket.Conn) {
 			break
 		}
 
-		if !validateClientToken(decodedMsg.ClientID, decodedMsg.Auth) {
-			fmt.Println("Invalid client token for user:", decodedMsg.ClientID)
-			errorMsgBytes, _ := json.Marshal(createErrorMessage(fmt.Errorf("invalid client token")))
-			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
-			break
-		}
-
 		fmt.Printf("Received message: %+v\n\n", decodedMsg)
 
 		handleErr := handleMessage(decodedMsg) // handle message
@@ -137,7 +130,7 @@ func clientMessageLoop(conn *websocket.Conn) {
 			fmt.Println("Error decoding message:", decodeErr)
 			errorMsgBytes, _ := json.Marshal(createErrorMessage(decodeErr))
 			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
-			break
+			// break
 		}
 
 		fieldsErr := checkFields(decodedMsg) // check message is correctly formed before decoding
@@ -146,15 +139,7 @@ func clientMessageLoop(conn *websocket.Conn) {
 			fmt.Println("Error checking fields:", fieldsErr)
 			errorMsgBytes, _ := json.Marshal(createErrorMessage(fieldsErr))
 			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
-			break
-		}
-
-		// fmt.Printf("Received message: %+v\n\n", decodedMsg)
-		if !validateClientToken(decodedMsg.ClientID, decodedMsg.Auth) {
-			fmt.Println("Invalid client token for user:", decodedMsg.ClientID)
-			errorMsgBytes, _ := json.Marshal(createErrorMessage(fmt.Errorf("invalid client token")))
-			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
-			break
+			// break
 		}
 
 		handlingErr := handleMessage(decodedMsg) // handle message
@@ -163,7 +148,7 @@ func clientMessageLoop(conn *websocket.Conn) {
 			fmt.Println("Error handling message:", handlingErr)
 			errorMsgBytes, _ := json.Marshal(createErrorMessage(handlingErr))
 			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
-			break
+			// break
 		}
 
 		toPion <- &decodedMsg // broadcast to Pion
