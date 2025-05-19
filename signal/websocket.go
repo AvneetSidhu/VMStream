@@ -1,4 +1,4 @@
-package main
+package signal
 
 import (
 	"encoding/json"

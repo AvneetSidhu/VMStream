@@ -1,4 +1,4 @@
-package main
+package signal
 
 import (
 	"fmt"
@@ -37,7 +37,7 @@ func generateJWTToken(clientID string) (string, error) {
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	return token.SignedString([]byte(JWT_SECRET))
+	return token.SignedString([]byte(jwtSecret))
 }
 
 func validateJWTToken(tokenString string) (string, error) {
@@ -45,7 +45,7 @@ func validateJWTToken(tokenString string) (string, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(JWT_SECRET), nil
+		return []byte(jwtSecret), nil
 	})
 
 	if err != nil {
@@ -58,4 +58,33 @@ func validateJWTToken(tokenString string) (string, error) {
 	}
 
 	return "", fmt.Errorf("invalid token")
+}
+
+
+func validateClientToken(clientID string, clientToken string) (bool) {
+	extractedUsername, err := validateJWTToken(clientToken)
+	if err != nil {
+		fmt.Println("Error validating client token:", err)
+		return false
+	}
+
+	if clientID != extractedUsername {
+		fmt.Println("Client ID does not match token username for user:", clientID)
+		return false
+	}
+	return true && userExists(clientID)
+}
+
+func validatePionToken(clientToken string) (bool) {
+	extractedUsername, err := validateJWTToken(clientToken)
+	if err != nil {
+		fmt.Println("Error validating client token:", err)
+		return false
+	}
+
+	if pionName != extractedUsername {
+		fmt.Println("Pion connection auth token does not match Pion name for user:", clientToken)
+		return false
+	}
+	return true
 }

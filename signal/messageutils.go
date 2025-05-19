@@ -1,0 +1,41 @@
+package signal
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+)
+
+func createErrorMessage(err error) (Message) {
+	return Message{
+		Type: "error",
+		ClientID: "",
+		Payload: json.RawMessage(fmt.Sprintf(`{"error": "%s"}`, err.Error())),
+		// Auth: "",
+	}
+}
+
+func decodeMessage(msgBytes []byte) (Message, error) {
+	var msg Message
+	decoder := json.NewDecoder(bytes.NewReader(msgBytes))	
+	decoder.DisallowUnknownFields() 
+	err := decoder.Decode(&msg)
+	return msg, err
+}	
+
+func checkFields(msg Message) (error) {
+	if msg.Type == "" {
+		return fmt.Errorf("missing or empty field: type")
+	}
+	if msg.ClientID == "" {
+		return fmt.Errorf("missing or empty field: client_id")
+	}
+	if len(msg.Payload) == 0 {
+		return fmt.Errorf("missing or empty field: payload")
+	}
+	// if msg.Auth == "" {
+	// 	return fmt.Errorf("missing or empty field: auth")
+	// }
+	return nil
+}
+

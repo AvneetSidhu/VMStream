@@ -1,28 +1,10 @@
-package main
+package signal
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-
-	"github.com/joho/godotenv"
 )
-
-type Request struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Auth     string `json:"auth,omitempty"`
-}
-
-type Response struct {
-	Message string `json:"message"`
-	Token   string `json:"token,omitempty"`
-	Data    string `json:"data,omitempty"`
-}
-
-var PION_NAME string
-var JWT_SECRET string
 
 func writeJSONError(w http.ResponseWriter, status int, err error) {
 	w.Header().Set("Content-Type", "application/json")
@@ -42,7 +24,7 @@ func decodeBody(r *http.Request) (Request, error) {
 	return body, nil
 }
 
-func pionConnect(w http.ResponseWriter, r *http.Request) {
+func PionConnectHandler(w http.ResponseWriter, r *http.Request) {
 	clientID := r.URL.Query().Get("client_id")
 	auth := r.URL.Query().Get("auth")
 	if !validatePionToken(auth) {
@@ -65,7 +47,7 @@ func pionConnect(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Pion connected:", clientID)
 }
 
-func clientConnect(w http.ResponseWriter, r *http.Request) {
+func ClientConnectHandler(w http.ResponseWriter, r *http.Request) {
 	clientID := r.URL.Query().Get("client_id")
 	auth := r.URL.Query().Get("auth")
 	if clientID == "" || auth == "" {
@@ -92,7 +74,7 @@ func clientConnect(w http.ResponseWriter, r *http.Request) {
 	go clientMessageLoop(conn) // start message loop
 }
 
-func login(w http.ResponseWriter, r *http.Request) {
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
 		return
@@ -136,7 +118,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("JWT token generated for user:", username)
 }
 
-func register(w http.ResponseWriter, r *http.Request) {
+func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
 		return
@@ -172,20 +154,4 @@ func register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(Response{Message: "Registration successful"})
-}
-
-func main() {
-	godotenv.Load()
-	fmt.Println("Loading environment variables...")
-	JWT_SECRET = os.Getenv("JWT_SECRET")
-	PION_NAME = os.Getenv("PION_NAME")
-	http.HandleFunc("/connect", clientConnect)
-	http.HandleFunc("/pion-connect", pionConnect)
-	http.HandleFunc("/login", login)
-	http.HandleFunc("/register", register)
-	fmt.Println("Server started at :8080")
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		fmt.Println("Error starting server:", err)
-	}
 }
