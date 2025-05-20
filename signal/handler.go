@@ -24,28 +24,43 @@ func decodeBody(r *http.Request) (Request, error) {
 	return body, nil
 }
 
-func PionConnectHandler(w http.ResponseWriter, r *http.Request) {
-	clientID := r.URL.Query().Get("client_id")
-	auth := r.URL.Query().Get("auth")
-	if !validatePionToken(auth) {
-		writeJSONError(w, http.StatusUnauthorized, fmt.Errorf("invalid auth token"))
-		return
-	}
+// func WithCORS(next http.Handler) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		w.Header().Set("Access-Control-Allow-Origin", "*")
+// 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+// 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-	if r.Method != http.MethodGet {
-		writeJSONError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
-		return
-	}
+// 		if r.Method == http.MethodOptions {
+// 			w.WriteHeader(http.StatusOK)
+// 			return
+// 		}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		fmt.Println("Error upgrading connection:", err)
-		return
-	}
+// 		next.ServeHTTP(w, r)
+// 	})
+// }
 
-	pionMessageLoop(conn) // start Pion message loop
-	fmt.Println("Pion connected:", clientID)
-}
+// func PionConnectHandler(w http.ResponseWriter, r *http.Request) {
+// 	clientID := r.URL.Query().Get("client_id")
+// 	auth := r.URL.Query().Get("auth")
+// 	if !validatePionToken(auth) {
+// 		writeJSONError(w, http.StatusUnauthorized, fmt.Errorf("invalid auth token"))
+// 		return
+// 	}
+
+// 	if r.Method != http.MethodGet {
+// 		writeJSONError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
+// 		return
+// 	}
+
+// 	conn, err := upgrader.Upgrade(w, r, nil)
+// 	if err != nil {
+// 		fmt.Println("Error upgrading connection:", err)
+// 		return
+// 	}
+
+// 	pionMessageLoop(conn) // start Pion message loop
+// 	fmt.Println("Pion connected:", clientID)
+// }
 
 func ClientConnectHandler(w http.ResponseWriter, r *http.Request) {
 	clientID := r.URL.Query().Get("client_id")

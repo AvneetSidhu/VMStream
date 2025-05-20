@@ -3,8 +3,8 @@ package signal
 var jwtSecret string
 var pionName string
 
-var fromPion = make(chan *Message) // channel for messages from pion
-var toPion = make(chan *Message)   // channel for messages to pion
+var FromSFU = make(chan *Message, 1000) // channel for messages to be read from pion
+var ToSFU = make(chan SFUMessage, 1000) // channel for messages to send to pion
 
 func SetJWTSecret(secret string) {
 	jwtSecret = secret

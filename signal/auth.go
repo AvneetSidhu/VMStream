@@ -75,16 +75,16 @@ func validateClientToken(clientID string, clientToken string) (bool) {
 	return true && userExists(clientID)
 }
 
-func validatePionToken(clientToken string) (bool) {
-	extractedUsername, err := validateJWTToken(clientToken)
-	if err != nil {
-		fmt.Println("Error validating client token:", err)
-		return false
-	}
+// func validatePionToken(clientToken string) (bool) {
+// 	extractedUsername, err := validateJWTToken(clientToken)
+// 	if err != nil {
+// 		fmt.Println("Error validating client token:", err)
+// 		return false
+// 	}
 
-	if pionName != extractedUsername {
-		fmt.Println("Pion connection auth token does not match Pion name for user:", clientToken)
-		return false
-	}
-	return true
-}
+// 	if pionName != extractedUsername {
+// 		fmt.Println("Pion connection auth token does not match Pion name for user:", clientToken)
+// 		return false
+// 	}
+// 	return true
+// }

@@ -15,6 +15,7 @@ func createErrorMessage(err error) (Message) {
 	}
 }
 
+
 func decodeMessage(msgBytes []byte) (Message, error) {
 	var msg Message
 	decoder := json.NewDecoder(bytes.NewReader(msgBytes))	
@@ -22,6 +23,11 @@ func decodeMessage(msgBytes []byte) (Message, error) {
 	err := decoder.Decode(&msg)
 	return msg, err
 }	
+
+func decodePayload[T any](payloadBytes []byte, out *T) error {
+	return json.Unmarshal(payloadBytes, out)
+}
+
 
 func checkFields(msg Message) (error) {
 	if msg.Type == "" {
