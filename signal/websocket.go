@@ -3,6 +3,7 @@ package signal
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 
@@ -43,51 +44,60 @@ func handleMessage(msg Message)(SFUMessage, error) {
 		if err := decodePayload(msg.Payload, &payload); err != nil {
 			return nil, err
 		}
-		fmt.Printf("Received offer from client %s: %s\n", msg.ClientID, payload.SDP)
-		return &SFUOffer{ClientID: msg.ClientID, Payload: payload}, nil
+		// fmt.Printf("Received offer from client %s: %s\n", msg.ClientID, payload.SDP)
+		return &SFUOffer{ClientID: msg.ClientID, Type:"offer", Payload: payload}, nil
 	case "answer":
 		var payload AnswerPayload
 		if err := decodePayload(msg.Payload, &payload); err != nil {
 			return nil, err
 		}
-		fmt.Printf("Received answer from client %s: %s\n", msg.ClientID, payload.SDP)
-		return &SFUAnswer{ClientID: msg.ClientID, Payload: payload}, nil
-	case "ice_candidate":
+		// fmt.Printf("Received answer from client %s: %s\n", msg.ClientID, payload.SDP)
+		return &SFUAnswer{ClientID: msg.ClientID, Type:"answer", Payload: payload}, nil
+	case "ice-candidate":
 		var payload IceCandidatePayload
 		if err := decodePayload(msg.Payload, &payload); err != nil {
 			return nil, err
 		}
-		fmt.Printf("Received ICE candidate from client %s: %s\n", msg.ClientID, payload.Candidate)
-		return &SFUIceCandidate{ClientID: msg.ClientID, Payload: payload}, nil
+		// fmt.Printf("Received ICE candidate from client %s: %s\n", msg.ClientID, payload.Candidate)
+		return &SFUIceCandidate{ClientID: msg.ClientID, Type:"ice-candidate", Payload: payload}, nil
+	case "termination":
+		clientID := msg.ClientID
+		removeClient(clientID)
+		fmt.Println("Successful webRTC handshake: Terminating WebSocket")
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("unknown message type: %s", msg.Type)
 	}
 }
 
 func messageLoopCleanup(conn *websocket.Conn) {
-	defer conn.Close()
 	clientID := conn.RemoteAddr().String()
 	removeClient(clientID) // remove client from connection manager
 	fmt.Println("Client disconnected:", clientID)
 }
 
-func sendMessage(conn *websocket.Conn, msg Message) {
-	err := conn.WriteJSON(msg)
-	if err != nil {
-		fmt.Println("Error broadcasting message:", err)
+func sendMessage(conn *websocket.Conn, msg SFUMessage) {
+	switch msg := msg.(type) {
+	case *SFUIceCandidate:
+		conn.WriteJSON(msg)
+	case *SFUAnswer:
+		conn.WriteJSON(msg)
+	default:
+		log.Println("Unknown Message Type")
 	}
 }
 
 func pionReadLoop() {
 	for msg := range FromSFU {
 		mu.RLock()
-		conn, ok := clients[msg.ClientID]
+		conn, ok := clients[msg.GetClientID()]
 		mu.RUnlock()
+		// fmt.Println("received a message from SFU for client: " + msg.GetClientID() + " of type: " + msg.GetType())
 		if !ok {
-			fmt.Printf("Client %s not connected\n", msg.ClientID)
+			fmt.Printf("Client %s not connected\n", msg.GetClientID())
 			continue
 		}
-		sendMessage(conn, *msg) // broadcast message to all clients
+		sendMessage(conn, msg) // broadcast message to all clients
 	}
 }
 

@@ -16,7 +16,7 @@ type Response struct {
 
 type Message struct {
 	Type     string          `json:"type"`
-	ClientID string          `json:"client_id"`
+	ClientID string          `json:"clientId"`
 	Payload  json.RawMessage `json:"payload"`
 	// Auth string `json:"auth"`
 }
@@ -35,28 +35,34 @@ type AnswerPayload struct {
 
 type IceCandidatePayload struct {
 	Candidate string `json:"candidate"`
-	SDPMid string `json:"sdpMid"`
-	SDPMLineIndex uint16 `json:"sdpMLineIndex"`
+	SDPMid string `json:"sdpMid,omitempty"`
+	SDPMLineIndex uint16 `json:"sdpMLineIndex,omitempty"`
 }
 
 type SFUMessage interface {
 	GetClientID() string
+	GetType() string
 }
 
 type SFUOffer struct{
-	ClientID string 
-	Payload OfferPayload
+	ClientID string `json:"clientId"`
+	Type string `json:"type"`
+	Payload OfferPayload `json:"payload"`
 }
 func (o *SFUOffer) GetClientID() string { return o.ClientID } 
-
+func (o *SFUOffer) GetType() string { return o.Type }
 type SFUAnswer struct{
-	ClientID string
-	Payload AnswerPayload
+	ClientID string `json:"clientId"`
+	Type string `json:"type"`
+	Payload AnswerPayload `json:"payload"`
 }
 func (a *SFUAnswer) GetClientID() string { return a.ClientID }
+func (a *SFUAnswer) GetType() string { return a.Type }
 
 type SFUIceCandidate struct{
-	ClientID string
-	Payload IceCandidatePayload
+	ClientID string `json:"clientId"`
+	Type string `json:"type"`
+	Payload IceCandidatePayload `json:"payload"`
 }
 func (i *SFUIceCandidate) GetClientID() string { return i.ClientID }
+func (i *SFUIceCandidate) GetType() string { return i.Type }

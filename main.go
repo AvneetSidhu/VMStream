@@ -13,7 +13,6 @@ import (
 var PION_NAME string
 var JWT_SECRET string
 
-
 func main() {
 	godotenv.Load()
 	fmt.Println("Loading environment variables...")
@@ -25,6 +24,7 @@ func main() {
 	go signal.StartSFUMessageLoop()
 
 	sfu.FromSignal = signal.ToSFU
+	sfu.ToSignal = signal.FromSFU
 	go sfu.Start()
 
 	http.HandleFunc("/login", signal.LoginHandler)

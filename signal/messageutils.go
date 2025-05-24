@@ -34,7 +34,7 @@ func checkFields(msg Message) (error) {
 		return fmt.Errorf("missing or empty field: type")
 	}
 	if msg.ClientID == "" {
-		return fmt.Errorf("missing or empty field: client_id")
+		return fmt.Errorf("missing or empty field: clientId")
 	}
 	if len(msg.Payload) == 0 {
 		return fmt.Errorf("missing or empty field: payload")
