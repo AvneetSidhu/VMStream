@@ -28,7 +28,6 @@ func addClient(clientID string, conn *websocket.Conn) {
 }
 
 func removeClient(clientID string) {
-	fmt.Println("Removing client:", clientID)
 	mu.Lock()
 	defer mu.Unlock()
 	if conn, ok := clients[clientID]; ok {
@@ -61,8 +60,6 @@ func handleMessage(msg Message)(SFUMessage, error) {
 		// fmt.Printf("Received ICE candidate from client %s: %s\n", msg.ClientID, payload.Candidate)
 		return &SFUIceCandidate{ClientID: msg.ClientID, Type:"ice-candidate", Payload: payload}, nil
 	case "termination":
-		clientID := msg.ClientID
-		removeClient(clientID)
 		fmt.Println("Successful webRTC handshake: Terminating WebSocket")
 		return nil, nil
 	default:
@@ -70,8 +67,7 @@ func handleMessage(msg Message)(SFUMessage, error) {
 	}
 }
 
-func messageLoopCleanup(conn *websocket.Conn) {
-	clientID := conn.RemoteAddr().String()
+func messageLoopCleanup(clientID string) {
 	removeClient(clientID) // remove client from connection manager
 	fmt.Println("Client disconnected:", clientID)
 }
@@ -105,8 +101,8 @@ func StartSFUMessageLoop() {
 	go pionReadLoop() // start Pion read loop
 }
 
-func clientMessageLoop(conn *websocket.Conn) {
-	defer messageLoopCleanup(conn) // cleanup on exit
+func clientMessageLoop(conn *websocket.Conn, clientID string) {
+	defer messageLoopCleanup(clientID) // cleanup on exit
 	for {
 		_, msgBytes, err := conn.ReadMessage()
 
@@ -141,6 +137,10 @@ func clientMessageLoop(conn *websocket.Conn) {
 			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
 			break
 		} // broadcast to Pion
+		
+		if toForward == nil {
+			break
+		}
 
 		ToSFU <- toForward
 	}

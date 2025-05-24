@@ -84,9 +84,9 @@ func ClientConnectHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Error upgrading connection:", err)
 		return
 	}
-	addClient(r.URL.Query().Get("client_id"), conn) // add client to connection manager
+	addClient(clientID, conn) // add client to connection manager
 	fmt.Println("Client connected:", r.URL.Query().Get("client_id"))
-	go clientMessageLoop(conn) // start message loop
+	go clientMessageLoop(conn, clientID) // start message loop
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {

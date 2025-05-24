@@ -19,11 +19,8 @@ func Start() {
 		case *signal.SFUOffer:
 			fmt.Println("Received Offer from client")
 			handleOffer(v.GetClientID(), v.Payload.SDP)
-		case *signal.SFUAnswer:
-			fmt.Println("Answer SDP:", v.Payload.SDP)
 		case *signal.SFUIceCandidate:
 			handleICECandidate(v.GetClientID(), v.Payload)
 		}
-		
 	}	
 }
