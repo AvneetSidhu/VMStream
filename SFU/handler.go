@@ -2,19 +2,50 @@ package sfu
 
 import (
 	"fmt"
+	"time"
 	"webrtc-gateway/signal"
 
 	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v3/pkg/media"
 )
 
 func cleanup(clientID string) {
 	mu.Lock()
 	if pc, ok := peers[clientID]; ok {
-		_ = pc.Close()
+		_ = pc.PeerConn.Close()
 		delete(peers, clientID)
 		fmt.Println("Ended webRTC connection for: ", clientID)
 	}
 	mu.Unlock()
+}
+
+func startStream(trackV *webrtc.TrackLocalStaticSample, trackA *webrtc.TrackLocalStaticSample){
+	
+	go func() {
+		ticket := time.NewTicker(time.Second)
+		for range ticket.C {
+			err := trackV.WriteSample(media.Sample{
+				Data: []byte{0x00},
+				Duration: time.Second,
+			})
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+	}()
+
+	go func() {
+		ticker := time.NewTicker(20 * time.Millisecond)
+		for range ticker.C {
+			err := trackA.WriteSample(media.Sample{
+				Data: []byte{0xF8, 0xFF, 0xFE},
+				Duration: 20 * time.Millisecond,
+			})
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+	}()
 }
 
 func handleOffer(clientID string, offerSDP string) {
@@ -26,6 +57,16 @@ func handleOffer(clientID string, offerSDP string) {
 		},
 	}
 
+	videoTrack, _ := webrtc.NewTrackLocalStaticSample(
+		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8},
+		"video", "pion",
+	)
+	
+	audioTrack, _ := webrtc.NewTrackLocalStaticSample(
+		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus, ClockRate: 48000, Channels: 2},
+		"audio", "pion",
+	)
+
 	pc, err := webrtc.NewPeerConnection(config)
 	if err != nil {
 		fmt.Println("Error Creating New Peer Connection for client: " + clientID)
@@ -33,15 +74,22 @@ func handleOffer(clientID string, offerSDP string) {
 		return
 	}
 
+	startStream(videoTrack, audioTrack)
+
 	pc.OnConnectionStateChange(func (state webrtc.PeerConnectionState){
-		fmt.Println("state: ", state)
 		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
-		 cleanup(clientID)
+			fmt.Println("WebRTC Connection Terminated for client: " + clientID)
+			cleanup(clientID)
 	 	}
 	})
 
 	mu.Lock()
-	peers[clientID] = pc
+	peers[clientID] = Client{
+		ClientID: clientID,
+		PeerConn: pc,
+		VideoTrack: videoTrack,
+		AudioTrack: audioTrack,
+	}
 	mu.Unlock()
 
 	offer :=  webrtc.SessionDescription{
@@ -55,6 +103,9 @@ func handleOffer(clientID string, offerSDP string) {
 		return
 	}
 
+	pc.AddTrack(audioTrack)
+	pc.AddTrack(videoTrack)
+
 	answer, err := pc.CreateAnswer(nil)
 	if err != nil {
 		fmt.Println("Error Creating Answer for client: " + clientID)
@@ -65,7 +116,6 @@ func handleOffer(clientID string, offerSDP string) {
 	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
 		if c != nil { 
 			candidateJSON := c.ToJSON()
-			// fmt.Println("local ice-candidate: ", candidateJSON)
 			sendToClient( &signal.SFUIceCandidate {
 				ClientID: clientID,
 				Type: "ice-candidate",
@@ -89,10 +139,10 @@ func handleOffer(clientID string, offerSDP string) {
 
 func handleICECandidate(clientID string, payload signal.IceCandidatePayload) {
 	mu.RLock()
-	pc, ok := peers[clientID]
+	client, ok := peers[clientID]
 	mu.RUnlock()
-	// fmt.Println("received remote ice-candidate: ", payload)
 	if ok {
+		pc := client.PeerConn
 		pc.AddICECandidate(webrtc.ICECandidateInit{
 			Candidate: payload.Candidate,
 			SDPMid: &payload.SDPMid,

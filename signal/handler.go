@@ -85,7 +85,7 @@ func ClientConnectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	addClient(clientID, conn) // add client to connection manager
-	fmt.Println("Client connected:", r.URL.Query().Get("client_id"))
+	fmt.Println("Signaling started for client:", r.URL.Query().Get("client_id"))
 	go clientMessageLoop(conn, clientID) // start message loop
 }
 
@@ -102,7 +102,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username, password := body.Username, body.Password
-	fmt.Println("Log in request from:", username)
+	// fmt.Println("Log in request from:", username)
 
 	userExists := userExists(username)
 	if !userExists {
@@ -121,7 +121,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("Login successful, generating JWT for:", username)
+	// fmt.Println("Login successful, generating JWT for:", username)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -130,7 +130,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("internal server error"))
 	}
 	json.NewEncoder(w).Encode(Response{Message: "Login successful", Token: token})
-	fmt.Println("JWT token generated for user:", username)
+	// fmt.Println("JWT token generated for user:", username)
 }
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {

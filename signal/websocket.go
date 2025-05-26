@@ -69,7 +69,7 @@ func handleMessage(msg Message)(SFUMessage, error) {
 
 func messageLoopCleanup(clientID string) {
 	removeClient(clientID) // remove client from connection manager
-	fmt.Println("Client disconnected:", clientID)
+	fmt.Println("Client disconnected from signaling websocket:", clientID)
 }
 
 func sendMessage(conn *websocket.Conn, msg SFUMessage) {
