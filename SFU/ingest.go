@@ -1,5 +1,0 @@
-package sfu
-
-func Ingest() {
-
-}
