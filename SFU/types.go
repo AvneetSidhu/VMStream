@@ -80,8 +80,8 @@ func (b *Broadcaster) GetAllClients() map[string]*Client {
 }
 
 func (b *Broadcaster) forwardRTP (packet []byte, mediaType string) {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+
+	clients := b.GetAllClients()
 
 	rtpPacket := &rtp.Packet{}
 	if err := rtpPacket.Unmarshal(packet); err != nil {
@@ -89,12 +89,13 @@ func (b *Broadcaster) forwardRTP (packet []byte, mediaType string) {
 		return
 	}
 
-	for _, client := range b.clients {
+	for _, client := range clients{
+		packetCopy := *rtpPacket
 		var err error
 		if mediaType == "video" && client.VideoTrack != nil {
-			err = client.VideoTrack.WriteRTP(rtpPacket)
+			err = client.VideoTrack.WriteRTP(&packetCopy)
 		} else if mediaType == "audio" && client.AudioTrack != nil {
-			err = client.AudioTrack.WriteRTP(rtpPacket)
+			err = client.AudioTrack.WriteRTP(&packetCopy)
 		}
 
 		if err != nil {
