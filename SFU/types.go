@@ -129,12 +129,6 @@ func (b *Broadcaster) forwardRTP (packet []byte, mediaType string) {
 
 	for _, client := range clients{
 		packetCopy := *rtpPacket
-		// var err error
-		// if mediaType == "video" && client.VideoTrack != nil {
-		// 	err = client.VideoTrack.WriteRTP(&packetCopy)
-		// } else if mediaType == "audio" && client.AudioTrack != nil {
-		// 	err = client.AudioTrack.WriteRTP(&packetCopy)
-		// }
 		switch mediaType {
 			case "audio":
 				select {
@@ -148,10 +142,6 @@ func (b *Broadcaster) forwardRTP (packet []byte, mediaType string) {
 					default:
 						fmt.Printf("Client %s audio channel is full, dropping packet\n", client.ClientID)
 		}
-		// if err != nil {
-		// 	fmt.Printf("Failed to send %s to client %s: %v", mediaType, client.ClientID, err)
-		// 	break
-		// }
+		}
 	}
 }
-
