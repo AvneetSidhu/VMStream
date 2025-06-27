@@ -13,7 +13,7 @@ type Client struct {
 	ClientID         string
 	PeerConn   *webrtc.PeerConnection
 	VideoTrack *webrtc.TrackLocalStaticRTP
-	AudioTrack *webrtc.TrackLocalStaticRTP'
+	AudioTrack *webrtc.TrackLocalStaticRTP
 
 	audioChan chan *rtp.Packet
 	videoChan chan *rtp.Packet
