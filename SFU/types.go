@@ -75,20 +75,29 @@ func (b *Broadcaster) AddClient(client *Client) {
 		for range ticker.C {
 			now := time.Now()
 
-			// Audio SR
-			c.PeerConn.WriteRTCP([]rtcp.Packet{&rtcp.SenderReport{
-				SSRC:    c.AudioSSRC,
-				NTPTime: toNTPTime(now),
-				RTPTime: uint32(now.Sub(c.AudioBindTime).Seconds() * 48000),
-			}})
+			if c.AudioSSRC != 0 {
+				audioSR := &rtcp.SenderReport{
+					SSRC:    c.AudioSSRC,
+					NTPTime: toNTPTime(now),
+					RTPTime: uint32(now.Sub(c.AudioBindTime).Seconds() * 48000),
+				}
+				if err := c.PeerConn.WriteRTCP([]rtcp.Packet{audioSR}); err != nil {
+					fmt.Printf("❌ Failed to write audio SR for client %s: %v\n", c.ClientID, err)
+				}
+			}
 
-			// Video SR
-			c.PeerConn.WriteRTCP([]rtcp.Packet{&rtcp.SenderReport{
-				SSRC:    c.VideoSSRC,
-				NTPTime: toNTPTime(now),
-				RTPTime: uint32(now.Sub(c.VideoBindTime).Seconds() * 90000),
-			}})
-			fmt.Println("sent RTCP Sender Report for client:", c.ClientID)
+			if c.VideoSSRC != 0 {
+				videoSR := &rtcp.SenderReport{
+					SSRC:    c.VideoSSRC,
+					NTPTime: toNTPTime(now),
+					RTPTime: uint32(now.Sub(c.VideoBindTime).Seconds() * 90000),
+				}
+				if err := c.PeerConn.WriteRTCP([]rtcp.Packet{videoSR}); err != nil {
+					fmt.Printf("❌ Failed to write video SR for client %s: %v\n", c.ClientID, err)
+				}
+			}
+
+			fmt.Println("✅ Sent RTCP Sender Report for client:", c.ClientID)
 		}
 	}(client)
 
@@ -169,21 +178,31 @@ func (b *Broadcaster) forwardRTP (packet []byte, mediaType string) {
 		return
 	}
 
-	for _, client := range clients{
+	for _, client := range clients {
 		packetCopy := *rtpPacket
+
 		switch mediaType {
-			case "audio":
-				select {
-					case client.audioChan <- &packetCopy:
-					default:
-						fmt.Printf("Client %s video channel is full, dropping packet\n", client.ClientID)
-				}
-			case "video":
-				select {
-					case client.videoChan <- &packetCopy:
-					default:
-						fmt.Printf("Client %s audio channel is full, dropping packet\n", client.ClientID)
-		}
+		case "audio":
+			// Set SSRC and bind time if not already set
+			if client.AudioSSRC == 0 {
+				client.AudioSSRC = packetCopy.SSRC
+				client.AudioBindTime = time.Now()
+			}
+			select {
+			case client.audioChan <- &packetCopy:
+			default:
+				fmt.Printf("Client %s audio channel is full, dropping packet\n", client.ClientID)
+			}
+		case "video":
+			if client.VideoSSRC == 0 {
+				client.VideoSSRC = packetCopy.SSRC
+				client.VideoBindTime = time.Now()
+			}
+			select {
+			case client.videoChan <- &packetCopy:
+			default:
+				fmt.Printf("Client %s video channel is full, dropping packet\n", client.ClientID)
+			}
 		}
 	}
 }
