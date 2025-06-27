@@ -13,7 +13,12 @@ type Client struct {
 	ClientID         string
 	PeerConn   *webrtc.PeerConnection
 	VideoTrack *webrtc.TrackLocalStaticRTP
-	AudioTrack *webrtc.TrackLocalStaticRTP
+	AudioTrack *webrtc.TrackLocalStaticRTP'
+
+	audioChan chan *rtp.Packet
+	videoChan chan *rtp.Packet
+
+	done chan struct{}
 }
 
 type Broadcaster struct {
@@ -22,9 +27,42 @@ type Broadcaster struct {
 }
 
 func (b *Broadcaster) AddClient(client *Client) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	
+	client.audioChan = make(chan *rtp.Packet, 100)
+	client.videoChan = make(chan *rtp.Packet, 100)
+	client.done = make(chan struct{})
+	
+	go func() {
+		for {
+			select {
+			case pkt, ok := <-client.audioChan:
+				if !ok {
+					return // channel closed
+				}
+				_ = client.AudioTrack.WriteRTP(pkt)
+			case <-client.done:
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case pkt, ok := <-client.videoChan:
+				if !ok {
+					return
+				}
+				_ = client.VideoTrack.WriteRTP(pkt)
+			case <-client.done:
+				return
+			}
+		}
+	}()
+
+	b.mu.Lock() 
 	b.clients[client.ClientID] = client
+	b.mu.Unlock()
 }
 
 func (b *Broadcaster) Start() {
@@ -91,17 +129,29 @@ func (b *Broadcaster) forwardRTP (packet []byte, mediaType string) {
 
 	for _, client := range clients{
 		packetCopy := *rtpPacket
-		var err error
-		if mediaType == "video" && client.VideoTrack != nil {
-			err = client.VideoTrack.WriteRTP(&packetCopy)
-		} else if mediaType == "audio" && client.AudioTrack != nil {
-			err = client.AudioTrack.WriteRTP(&packetCopy)
+		// var err error
+		// if mediaType == "video" && client.VideoTrack != nil {
+		// 	err = client.VideoTrack.WriteRTP(&packetCopy)
+		// } else if mediaType == "audio" && client.AudioTrack != nil {
+		// 	err = client.AudioTrack.WriteRTP(&packetCopy)
+		// }
+		switch mediaType {
+			case "audio":
+				select {
+					case client.audioChan <- &packetCopy:
+					default:
+						fmt.Printf("Client %s video channel is full, dropping packet\n", client.ClientID)
+				}
+			case "video":
+				select {
+					case client.videoChan <- &packetCopy:
+					default:
+						fmt.Printf("Client %s audio channel is full, dropping packet\n", client.ClientID)
 		}
-
-		if err != nil {
-			fmt.Printf("Failed to send %s to client %s: %v", mediaType, client.ClientID, err)
-			break
-		}
+		// if err != nil {
+		// 	fmt.Printf("Failed to send %s to client %s: %v", mediaType, client.ClientID, err)
+		// 	break
+		// }
 	}
 }
 
