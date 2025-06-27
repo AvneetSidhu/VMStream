@@ -88,6 +88,7 @@ func (b *Broadcaster) AddClient(client *Client) {
 				NTPTime: toNTPTime(now),
 				RTPTime: uint32(now.Sub(c.VideoBindTime).Seconds() * 90000),
 			}})
+			fmt.Println("sent RTCP Sender Report for client:", c.ClientID)
 		}
 	}(client)
 
