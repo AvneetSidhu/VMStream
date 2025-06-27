@@ -97,7 +97,13 @@ func (b *Broadcaster) ingestRTP(port int, mediaType string) {
 func (b *Broadcaster) RemoveClient(clientID string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	delete(b.clients, clientID)
+	client, ok := b.clients[clientID]
+	if ok {
+		close(client.done)
+		close(client.audioChan)
+		close(client.videoChan)
+		delete(b.clients, clientID)
+	}
 }
 
 func (b *Broadcaster) GetClient(clientID string) (*Client, bool) {
