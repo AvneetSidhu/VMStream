@@ -26,6 +26,12 @@ type Client struct {
 	AudioBindTime time.Time
 	VideoBindTime time.Time
 
+	AudioPacketsSent uint32
+	AudioBytesSent   uint32
+
+	VideoPacketsSent uint32
+	VideoBytesSent   uint32
+
 	done chan struct{}
 }
 
@@ -77,10 +83,13 @@ func (b *Broadcaster) AddClient(client *Client) {
 
 			if c.AudioSSRC != 0 {
 				audioSR := &rtcp.SenderReport{
-					SSRC:    c.AudioSSRC,
-					NTPTime: toNTPTime(now),
-					RTPTime: uint32(now.Sub(c.AudioBindTime).Seconds() * 48000),
+					SSRC:        c.AudioSSRC,
+					NTPTime:     toNTPTime(now),
+					RTPTime:     uint32(now.Sub(c.AudioBindTime).Seconds() * 48000),
+					PacketCount: c.AudioPacketsSent,
+					OctetCount:  c.AudioBytesSent,
 				}
+
 				if err := c.PeerConn.WriteRTCP([]rtcp.Packet{audioSR}); err != nil {
 					fmt.Printf("❌ Failed to write audio SR for client %s: %v\n", c.ClientID, err)
 				}
@@ -88,10 +97,13 @@ func (b *Broadcaster) AddClient(client *Client) {
 
 			if c.VideoSSRC != 0 {
 				videoSR := &rtcp.SenderReport{
-					SSRC:    c.VideoSSRC,
-					NTPTime: toNTPTime(now),
-					RTPTime: uint32(now.Sub(c.VideoBindTime).Seconds() * 90000),
+					SSRC:        c.VideoSSRC,
+					NTPTime:     toNTPTime(now),
+					RTPTime:     uint32(now.Sub(c.AudioBindTime).Seconds() * 48000),
+					PacketCount: c.VideoPacketsSent,
+					OctetCount:  c.VideoBytesSent,
 				}
+
 				if err := c.PeerConn.WriteRTCP([]rtcp.Packet{videoSR}); err != nil {
 					fmt.Printf("❌ Failed to write video SR for client %s: %v\n", c.ClientID, err)
 				}
@@ -168,8 +180,7 @@ func (b *Broadcaster) GetAllClients() map[string]*Client {
 	return clientsCopy
 }
 
-func (b *Broadcaster) forwardRTP (packet []byte, mediaType string) {
-
+func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
 	clients := b.GetAllClients()
 
 	rtpPacket := &rtp.Packet{}
@@ -180,24 +191,31 @@ func (b *Broadcaster) forwardRTP (packet []byte, mediaType string) {
 
 	for _, client := range clients {
 		packetCopy := *rtpPacket
+		payloadSize := uint32(len(packetCopy.Payload))
 
 		switch mediaType {
 		case "audio":
-			// Set SSRC and bind time if not already set
 			if client.AudioSSRC == 0 {
 				client.AudioSSRC = packetCopy.SSRC
 				client.AudioBindTime = time.Now()
 			}
+			client.AudioPacketsSent++
+			client.AudioBytesSent += payloadSize
+
 			select {
 			case client.audioChan <- &packetCopy:
 			default:
 				fmt.Printf("Client %s audio channel is full, dropping packet\n", client.ClientID)
 			}
+
 		case "video":
 			if client.VideoSSRC == 0 {
 				client.VideoSSRC = packetCopy.SSRC
 				client.VideoBindTime = time.Now()
 			}
+			client.VideoPacketsSent++
+			client.VideoBytesSent += payloadSize
+
 			select {
 			case client.videoChan <- &packetCopy:
 			default:
@@ -206,3 +224,4 @@ func (b *Broadcaster) forwardRTP (packet []byte, mediaType string) {
 		}
 	}
 }
+
