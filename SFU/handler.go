@@ -3,6 +3,7 @@ package sfu
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 	"webrtc-gateway/signal"
 
 	"github.com/pion/webrtc/v3"
@@ -57,6 +58,10 @@ func handleOffer(clientID string, offerSDP string) {
 		PeerConn: pc,
 		VideoTrack: videoTrack,
 		AudioTrack: audioTrack,
+		AudioSSRC: 0,
+		VideoSSRC: 1,
+		AudioBindTime: time.Now(),
+		VideoBindTime: time.Now(),
 	})
 	
 	err = pc.SetRemoteDescription(

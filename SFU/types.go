@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
+	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 )
@@ -18,6 +20,12 @@ type Client struct {
 	audioChan chan *rtp.Packet
 	videoChan chan *rtp.Packet
 
+	AudioSSRC uint32
+	VideoSSRC uint32
+
+	AudioBindTime time.Time
+	VideoBindTime time.Time
+
 	done chan struct{}
 }
 
@@ -28,8 +36,8 @@ type Broadcaster struct {
 
 func (b *Broadcaster) AddClient(client *Client) {
 	
-	client.audioChan = make(chan *rtp.Packet, 100)
-	client.videoChan = make(chan *rtp.Packet, 100)
+	client.audioChan = make(chan *rtp.Packet, 500)
+	client.videoChan = make(chan *rtp.Packet, 500)
 	client.done = make(chan struct{})
 	
 	go func() {
@@ -60,6 +68,29 @@ func (b *Broadcaster) AddClient(client *Client) {
 		}
 	}()
 
+	go func(c *Client) {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			now := time.Now()
+
+			// Audio SR
+			c.PeerConn.WriteRTCP([]rtcp.Packet{&rtcp.SenderReport{
+				SSRC:    c.AudioSSRC,
+				NTPTime: toNTPTime(now),
+				RTPTime: uint32(now.Sub(c.AudioBindTime).Seconds() * 48000),
+			}})
+
+			// Video SR
+			c.PeerConn.WriteRTCP([]rtcp.Packet{&rtcp.SenderReport{
+				SSRC:    c.VideoSSRC,
+				NTPTime: toNTPTime(now),
+				RTPTime: uint32(now.Sub(c.VideoBindTime).Seconds() * 90000),
+			}})
+		}
+	}(client)
+
 	b.mu.Lock() 
 	b.clients[client.ClientID] = client
 	b.mu.Unlock()
@@ -71,6 +102,10 @@ func (b *Broadcaster) Start() {
 
 	go b.ingestRTP(5004, "video")
 	go b.ingestRTP(5006, "audio")
+}
+
+func startRTCPTicker(b *Broadcaster) {
+
 }
 
 func (b *Broadcaster) ingestRTP(port int, mediaType string) {
