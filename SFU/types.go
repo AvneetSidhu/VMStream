@@ -42,8 +42,8 @@ type Broadcaster struct {
 
 func (b *Broadcaster) AddClient(client *Client) {
 	
-	client.audioChan = make(chan *rtp.Packet, 500)
-	client.videoChan = make(chan *rtp.Packet, 500)
+	client.audioChan = make(chan *rtp.Packet, 150)
+	client.videoChan = make(chan *rtp.Packet, 150)
 	client.done = make(chan struct{})
 	
 	go func() {

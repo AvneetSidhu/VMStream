@@ -28,7 +28,7 @@ func handleOffer(clientID string, offerSDP string) {
 	}
 
 	videoTrack, _ := webrtc.NewTrackLocalStaticRTP(
-		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8},
+		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8, ClockRate: 90000},
 		"video", "pion",
 	)
 	
