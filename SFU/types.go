@@ -28,12 +28,6 @@ type Client struct {
 	nonMasterRTPStartTime uint32
 	nonMasterWallClockTime time.Time
 
-	AudioSSRC uint32
-	VideoSSRC uint32
-
-	AudioBindTime time.Time
-	VideoBindTime time.Time
-
 	AudioPacketsSent uint32
 	AudioBytesSent   uint32
 
@@ -88,45 +82,58 @@ func (b *Broadcaster) AddClient(client *Client) {
 		}
 	}()
 
+
 	go func() {
 		for {
-			audioPkt, errA := client.audioBuffer.Pop()
-			videoPkt, errV := client.videoBuffer.Pop()
-
-			if errA != nil || errV != nil {
-				time.Sleep(10 * time.Millisecond)
-				continue
-			}
-
-			deltaA := audioPkt.Timestamp - client.masterRTPStartTime
-			deltaV := videoPkt.Timestamp - client.nonMasterRTPStartTime
-
-			playTimeA := client.masterWallClockTime.Add(time.Duration(deltaA) * time.Second / 48000)
-			playTimeV := client.nonMasterWallClockTime.Add(time.Duration(deltaV) * time.Second / 90000)
-
-			avDiff := absTimeDiff(playTimeA, playTimeV)
-
-			if avDiff < 25 * time.Millisecond {
-				client.AudioTrack.WriteRTP(audioPkt)
-				client.VideoTrack.WriteRTP(videoPkt)
-				continue
-			}
-
-			if playTimeA.Before(playTimeV) {
-				sleepDuration := time.Until(playTimeV)
-				if sleepDuration > 0 {
-					time.Sleep(sleepDuration)
+			select {
+			case <-client.done:
+				return
+			default:
+				audioPkt, err := client.audioBuffer.Pop()
+				if err != nil {
+					time.Sleep(5 * time.Millisecond)
+					continue
 				}
-				client.AudioTrack.WriteRTP(audioPkt)
-			} else {
-				sleepDuration := time.Until(playTimeA)
-				if sleepDuration > 0 {
-					time.Sleep(sleepDuration)
+
+				deltaA := audioPkt.Timestamp - client.masterRTPStartTime
+				sendTime := client.masterWallClockTime.Add(time.Duration(deltaA) * time.Second / 48000)
+
+				sleep := time.Until(sendTime)
+				if sleep > 0 {
+					time.Sleep(sleep)
 				}
-				client.VideoTrack.WriteRTP(videoPkt)
+
+				_ = client.AudioTrack.WriteRTP(audioPkt)
 			}
 		}
 	}()
+
+
+	go func() {
+		for {
+			select {
+			case <-client.done:
+				return
+			default:
+				videoPkt, err := client.videoBuffer.Pop()
+				if err != nil {
+					time.Sleep(5 * time.Millisecond)
+					continue
+				}
+
+				deltaV := videoPkt.Timestamp - client.nonMasterRTPStartTime
+				sendTime := client.nonMasterWallClockTime.Add(time.Duration(deltaV) * time.Second / 90000)
+
+				sleep := time.Until(sendTime)
+				if sleep > 0 {
+					time.Sleep(sleep)
+				}
+
+				_ = client.VideoTrack.WriteRTP(videoPkt)
+			}
+		}
+	}()
+
 
 	b.mu.Lock() 
 	b.clients[client.ClientID] = client
