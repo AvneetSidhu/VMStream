@@ -59,8 +59,8 @@ func (b *Broadcaster) AddClient(client *Client) {
 				if !ok {
 					return // channel closed
 				}
-				// _ = client.AudioTrack.WriteRTP(pkt)
-				client.audioBuffer.Push(pkt)
+				_ = client.AudioTrack.WriteRTP(pkt)
+				// client.audioBuffer.Push(pkt)
 			case <-client.done:
 				return
 			}
