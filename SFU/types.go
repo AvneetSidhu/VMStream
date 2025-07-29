@@ -60,7 +60,7 @@ func (b *Broadcaster) AddClient(client *Client) {
 					return // channel closed
 				}
 				// _ = client.AudioTrack.WriteRTP(pkt)
-				client.audioBuffer.Push(pkt)
+				client.AudioTrack.WriteRTP(pkt)
 			case <-client.done:
 				return
 			}
@@ -75,7 +75,7 @@ func (b *Broadcaster) AddClient(client *Client) {
 					return
 				}
 				// _ = client.VideoTrack.WriteRTP(pkt)
-				client.videoBuffer.Push(pkt)
+				client.VideoTrack.WriteRTP(pkt)
 			case <-client.done:
 				return
 			}
