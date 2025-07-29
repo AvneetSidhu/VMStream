@@ -84,29 +84,36 @@ func (b *Broadcaster) AddClient(client *Client) {
 
 
 	go func() {
+		const audioClockRate = 48000 // Opus / most audio RTP
 		for {
 			select {
 			case <-client.done:
 				return
 			default:
-				audioPkt, err := client.audioBuffer.Pop()
+				pkt, err := client.audioBuffer.Pop()
 				if err != nil {
 					time.Sleep(5 * time.Millisecond)
 					continue
 				}
 
-				deltaA := audioPkt.Timestamp - client.masterRTPStartTime
-				sendTime := client.masterWallClockTime.Add(time.Duration(deltaA) * time.Second / 48000)
+				// Convert RTP timestamp delta to duration using audio clock rate
+				ticks := pkt.Timestamp - client.masterRTPStartTime
+				elapsed := time.Duration(ticks) * time.Second / audioClockRate
+				targetTime := client.masterWallClockTime.Add(elapsed)
 
-				sleep := time.Until(sendTime)
-				if sleep > 0 {
-					time.Sleep(sleep)
+				delay := time.Until(targetTime)
+				if delay > 0 && delay < 500*time.Millisecond {
+					time.Sleep(delay)
 				}
 
-				_ = client.AudioTrack.WriteRTP(audioPkt)
+				err = client.AudioTrack.WriteRTP(pkt)
+				if err != nil {
+					fmt.Println("Audio write error:", err)
+				}
 			}
 		}
 	}()
+
 
 
 	go func() {
