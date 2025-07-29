@@ -60,7 +60,6 @@ func (b *Broadcaster) AddClient(client *Client) {
 					return // channel closed
 				}
 				_ = client.AudioTrack.WriteRTP(pkt)
-				// client.audioBuffer.Push(pkt)
 			case <-client.done:
 				return
 			}
@@ -74,73 +73,12 @@ func (b *Broadcaster) AddClient(client *Client) {
 				if !ok {
 					return
 				}
-				// _ = client.VideoTrack.WriteRTP(pkt)
 				client.VideoTrack.WriteRTP(pkt)
 			case <-client.done:
 				return
 			}
 		}
 	}()
-
-
-	go func() {
-		const audioClockRate = 48000 // Opus / most audio RTP
-		for {
-			select {
-			case <-client.done:
-				return
-			default:
-				pkt, err := client.audioBuffer.Pop()
-				if err != nil {
-					time.Sleep(5 * time.Millisecond)
-					continue
-				}
-
-				// Convert RTP timestamp delta to duration using audio clock rate
-				ticks := pkt.Timestamp - client.masterRTPStartTime
-				elapsed := time.Duration(ticks) * time.Second / audioClockRate
-				targetTime := client.masterWallClockTime.Add(elapsed)
-
-				delay := time.Until(targetTime)
-				if delay > 0 && delay < 500*time.Millisecond {
-					time.Sleep(delay)
-				}
-
-				err = client.AudioTrack.WriteRTP(pkt)
-				if err != nil {
-					fmt.Println("Audio write error:", err)
-				}
-			}
-		}
-	}()
-
-
-
-	go func() {
-		for {
-			select {
-			case <-client.done:
-				return
-			default:
-				videoPkt, err := client.videoBuffer.Pop()
-				if err != nil {
-					time.Sleep(5 * time.Millisecond)
-					continue
-				}
-
-				deltaV := videoPkt.Timestamp - client.nonMasterRTPStartTime
-				sendTime := client.nonMasterWallClockTime.Add(time.Duration(deltaV) * time.Second / 90000)
-
-				sleep := time.Until(sendTime)
-				if sleep > 0 {
-					time.Sleep(sleep)
-				}
-
-				_ = client.VideoTrack.WriteRTP(videoPkt)
-			}
-		}
-	}()
-
 
 	b.mu.Lock() 
 	b.clients[client.ClientID] = client
