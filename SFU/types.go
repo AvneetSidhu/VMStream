@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 )
@@ -19,6 +18,15 @@ type Client struct {
 
 	audioChan chan *rtp.Packet
 	videoChan chan *rtp.Packet
+
+	audioBuffer *RingBuffer
+	videoBuffer *RingBuffer 
+
+	masterRTPStartTime uint32
+	masterWallClockTime time.Time
+
+	nonMasterRTPStartTime uint32
+	nonMasterWallClockTime time.Time
 
 	AudioSSRC uint32
 	VideoSSRC uint32
@@ -44,6 +52,10 @@ func (b *Broadcaster) AddClient(client *Client) {
 	
 	client.audioChan = make(chan *rtp.Packet, 150)
 	client.videoChan = make(chan *rtp.Packet, 150)
+
+	client.audioBuffer = NewRingBuffer(30)
+	client.videoBuffer = NewRingBuffer(30)
+
 	client.done = make(chan struct{})
 	
 	go func() {
@@ -53,7 +65,8 @@ func (b *Broadcaster) AddClient(client *Client) {
 				if !ok {
 					return // channel closed
 				}
-				_ = client.AudioTrack.WriteRTP(pkt)
+				// _ = client.AudioTrack.WriteRTP(pkt)
+				client.audioBuffer.Push(pkt)
 			case <-client.done:
 				return
 			}
@@ -67,51 +80,53 @@ func (b *Broadcaster) AddClient(client *Client) {
 				if !ok {
 					return
 				}
-				_ = client.VideoTrack.WriteRTP(pkt)
+				// _ = client.VideoTrack.WriteRTP(pkt)
+				client.videoBuffer.Push(pkt)
 			case <-client.done:
 				return
 			}
 		}
 	}()
 
-	go func(c *Client) {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
+	go func() {
+		for {
+			audioPkt, errA := client.audioBuffer.Pop()
+			videoPkt, errV := client.videoBuffer.Pop()
 
-		for range ticker.C {
-			now := time.Now()
-
-			if c.AudioSSRC != 0 {
-				audioSR := &rtcp.SenderReport{
-					SSRC:        c.AudioSSRC,
-					NTPTime:     toNTPTime(now),
-					RTPTime:     uint32(now.Sub(c.AudioBindTime).Seconds() * 48000),
-					PacketCount: c.AudioPacketsSent,
-					OctetCount:  c.AudioBytesSent,
-				}
-
-				if err := c.PeerConn.WriteRTCP([]rtcp.Packet{audioSR}); err != nil {
-					fmt.Printf("❌ Failed to write audio SR for client %s: %v\n", c.ClientID, err)
-				}
+			if errA != nil || errV != nil {
+				time.Sleep(10 * time.Millisecond)
+				continue
 			}
 
-			if c.VideoSSRC != 0 {
-				videoSR := &rtcp.SenderReport{
-					SSRC:        c.VideoSSRC,
-					NTPTime:     toNTPTime(now),
-					RTPTime:     uint32(now.Sub(c.AudioBindTime).Seconds() * 48000),
-					PacketCount: c.VideoPacketsSent,
-					OctetCount:  c.VideoBytesSent,
-				}
+			deltaA := audioPkt.Timestamp - client.masterRTPStartTime
+			deltaV := videoPkt.Timestamp - client.nonMasterRTPStartTime
 
-				if err := c.PeerConn.WriteRTCP([]rtcp.Packet{videoSR}); err != nil {
-					fmt.Printf("❌ Failed to write video SR for client %s: %v\n", c.ClientID, err)
-				}
+			playTimeA := client.masterWallClockTime.Add(time.Duration(deltaA) * time.Second / 48000)
+			playTimeV := client.nonMasterWallClockTime.Add(time.Duration(deltaV) * time.Second / 90000)
+
+			avDiff := absTimeDiff(playTimeA, playTimeV)
+
+			if avDiff < 25 * time.Millisecond {
+				client.AudioTrack.WriteRTP(audioPkt)
+				client.VideoTrack.WriteRTP(videoPkt)
+				continue
 			}
 
-			fmt.Println("✅ Sent RTCP Sender Report for client:", c.ClientID)
+			if playTimeA.Before(playTimeV) {
+				sleepDuration := time.Until(playTimeV)
+				if sleepDuration > 0 {
+					time.Sleep(sleepDuration)
+				}
+				client.AudioTrack.WriteRTP(audioPkt)
+			} else {
+				sleepDuration := time.Until(playTimeA)
+				if sleepDuration > 0 {
+					time.Sleep(sleepDuration)
+				}
+				client.VideoTrack.WriteRTP(videoPkt)
+			}
 		}
-	}(client)
+	}()
 
 	b.mu.Lock() 
 	b.clients[client.ClientID] = client
@@ -195,9 +210,9 @@ func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
 
 		switch mediaType {
 		case "audio":
-			if client.AudioSSRC == 0 {
-				client.AudioSSRC = packetCopy.SSRC
-				client.AudioBindTime = time.Now()
+			if client.masterRTPStartTime == 0 {
+				client.masterRTPStartTime = packetCopy.Timestamp
+				client.masterWallClockTime = time.Now()
 			}
 			client.AudioPacketsSent++
 			client.AudioBytesSent += payloadSize
@@ -209,9 +224,9 @@ func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
 			}
 
 		case "video":
-			if client.VideoSSRC == 0 {
-				client.VideoSSRC = packetCopy.SSRC
-				client.VideoBindTime = time.Now()
+			if client.nonMasterRTPStartTime == 0 {
+				client.nonMasterRTPStartTime = packetCopy.Timestamp
+				client.nonMasterWallClockTime = time.Now()
 			}
 			client.VideoPacketsSent++
 			client.VideoBytesSent += payloadSize
@@ -224,4 +239,63 @@ func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
 		}
 	}
 }
+
+type RingBuffer struct {
+	buf []*rtp.Packet
+	size int
+	head int
+	readPos int 
+	writePos int
+	count int
+	mu sync.Mutex
+}
+
+func NewRingBuffer(size int) *RingBuffer {
+	return &RingBuffer{
+		buf: make([]*rtp.Packet, size),
+		size: size,
+	}
+}
+
+func (r *RingBuffer) Push(pkt *rtp.Packet) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.count == r.size {
+		return
+	}
+
+	r.count++
+	r.buf[r.writePos] = pkt
+	r.writePos = (r.writePos + 1) % r.size
+}
+
+func (r *RingBuffer) Pop() (*rtp.Packet, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.count == 0 {
+		return nil, fmt.Errorf("ring buffer is empty")
+	}
+
+	pkt := r.buf[r.readPos]
+	r.buf[r.readPos] = nil // Clear the slot
+	r.readPos = (r.readPos + 1) % r.size
+	r.count--
+
+	return pkt, nil
+}
+
+func (r *RingBuffer) Len() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.count
+}
+
+func (r *RingBuffer) Capacity() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.size
+}
+
 

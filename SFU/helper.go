@@ -24,3 +24,10 @@ func toNTPTime(t time.Time) uint64 {
 	fraction := uint64(t.Nanosecond()) * 0xFFFFFFFF / 1e9 // Convert nanoseconds to fraction
 	return (seconds << 32) | fraction
 }
+
+func absTimeDiff(t1, t2 time.Time) time.Duration {
+	if t1.After(t2) {
+		return t1.Sub(t2)
+	}
+	return t2.Sub(t1)
+}
