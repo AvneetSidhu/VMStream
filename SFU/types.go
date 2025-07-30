@@ -73,7 +73,7 @@ func (b *Broadcaster) AddClient(client *Client) {
 				if !ok {
 					return
 				}
-				client.VideoTrack.WriteRTP(pkt)
+				_ = client.VideoTrack.WriteRTP(pkt)
 			case <-client.done:
 				return
 			}
@@ -172,7 +172,18 @@ func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
 			select {
 			case client.audioChan <- &packetCopy:
 			default:
-				fmt.Printf("Client %s audio channel is full, dropping packet\n", client.ClientID)
+
+				select {
+				case <-client.audioChan: // drop the oldest packet and try to send the new one
+				default:
+					fmt.Printf("Client %s audio channel is full, dropping packet\n", client.ClientID)
+				}
+
+				select {
+				case client.audioChan <- &packetCopy:
+				default:
+					fmt.Printf("Client %s audio channel is full, dropping packet\n", client.ClientID)
+				}
 			}
 
 		case "video":
@@ -186,7 +197,18 @@ func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
 			select {
 			case client.videoChan <- &packetCopy:
 			default:
-				fmt.Printf("Client %s video channel is full, dropping packet\n", client.ClientID)
+
+				select {
+				case <-client.videoChan: // drop the oldest packet and try to send the new one
+				default:
+					fmt.Printf("Client %s video channel is full, dropping packet\n", client.ClientID)
+				}
+
+				select {
+				case client.videoChan <- &packetCopy:
+				default:
+					fmt.Printf("Client %s video channel is full, dropping packet\n", client.ClientID)
+				}
 			}
 		}
 	}
