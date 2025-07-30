@@ -19,9 +19,6 @@ type Client struct {
 	audioChan chan *rtp.Packet
 	videoChan chan *rtp.Packet
 
-	audioBuffer *RingBuffer
-	videoBuffer *RingBuffer 
-
 	masterRTPStartTime uint32
 	masterWallClockTime time.Time
 
@@ -47,19 +44,58 @@ func (b *Broadcaster) AddClient(client *Client) {
 	client.audioChan = make(chan *rtp.Packet, 1000)
 	client.videoChan = make(chan *rtp.Packet, 1000)
 
-	client.audioBuffer = NewRingBuffer(30)
-	client.videoBuffer = NewRingBuffer(30)
-
 	client.done = make(chan struct{})
 	
+	// go func() {
+	// 	for {
+	// 		select {
+	// 		case pkt, ok := <-client.audioChan:
+	// 			if !ok {
+	// 				return // channel closed
+	// 			}
+	// 			_ = client.AudioTrack.WriteRTP(pkt)
+	// 		case <-client.done:
+	// 			return
+	// 		}
+	// 	}
+	// }()
+
+	// go func() {
+	// 	for {
+	// 		select {
+	// 		case pkt, ok := <-client.videoChan:
+	// 			if !ok {
+	// 				return
+	// 			}
+	// 			_ = client.VideoTrack.WriteRTP(pkt)
+	// 		case <-client.done:
+	// 			return
+	// 		}
+	// 	}
+	// }()
+
 	go func() {
+		const audioClockRate = 48000
 		for {
 			select {
 			case pkt, ok := <-client.audioChan:
 				if !ok {
-					return // channel closed
+					return
 				}
+
+				// Calculate when to send based on RTP timestamp delta
+				delta := pkt.Timestamp - client.masterRTPStartTime
+				targetTime := client.masterWallClockTime.Add(
+					time.Duration(delta) * time.Second / audioClockRate,
+				)
+
+				sleep := time.Until(targetTime)
+				if sleep > 0 {
+					time.Sleep(sleep)
+				}
+
 				_ = client.AudioTrack.WriteRTP(pkt)
+
 			case <-client.done:
 				return
 			}
@@ -67,17 +103,31 @@ func (b *Broadcaster) AddClient(client *Client) {
 	}()
 
 	go func() {
-		for {
-			select {
-			case pkt, ok := <-client.videoChan:
-				if !ok {
-					return
-				}
-				_ = client.VideoTrack.WriteRTP(pkt)
-			case <-client.done:
+	const videoClockRate = 90000
+	for {
+		select {
+		case pkt, ok := <-client.videoChan:
+			if !ok {
 				return
 			}
+
+			// Calculate when to send based on RTP timestamp delta
+			delta := pkt.Timestamp - client.nonMasterRTPStartTime
+			targetTime := client.nonMasterWallClockTime.Add(
+				time.Duration(delta) * time.Second / videoClockRate,
+			)
+
+			sleep := time.Until(targetTime)
+			if sleep > 0 {
+				time.Sleep(sleep)
+			}
+
+			_ = client.VideoTrack.WriteRTP(pkt)
+
+		case <-client.done:
+			return
 		}
+	}
 	}()
 
 	b.mu.Lock() 
@@ -214,62 +264,5 @@ func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
 	}
 }
 
-type RingBuffer struct {
-	buf []*rtp.Packet
-	size int
-	head int
-	readPos int 
-	writePos int
-	count int
-	mu sync.Mutex
-}
-
-func NewRingBuffer(size int) *RingBuffer {
-	return &RingBuffer{
-		buf: make([]*rtp.Packet, size),
-		size: size,
-	}
-}
-
-func (r *RingBuffer) Push(pkt *rtp.Packet) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.count == r.size {
-		return
-	}
-
-	r.count++
-	r.buf[r.writePos] = pkt
-	r.writePos = (r.writePos + 1) % r.size
-}
-
-func (r *RingBuffer) Pop() (*rtp.Packet, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.count == 0 {
-		return nil, fmt.Errorf("ring buffer is empty")
-	}
-
-	pkt := r.buf[r.readPos]
-	r.buf[r.readPos] = nil // Clear the slot
-	r.readPos = (r.readPos + 1) % r.size
-	r.count--
-
-	return pkt, nil
-}
-
-func (r *RingBuffer) Len() int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.count
-}
-
-func (r *RingBuffer) Capacity() int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.size
-}
 
 
