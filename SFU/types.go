@@ -6,6 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"sync/atomic"
+
+	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 )
@@ -19,10 +22,10 @@ type Client struct {
 	audioChan chan *rtp.Packet
 	videoChan chan *rtp.Packet
 
-	masterRTPStartTime uint32
+	masterRTPStartTime uint32 //audio
 	masterWallClockTime time.Time
 
-	nonMasterRTPStartTime uint32
+	nonMasterRTPStartTime uint32 //video
 	nonMasterWallClockTime time.Time
 
 	AudioPacketsSent uint32
@@ -31,7 +34,28 @@ type Client struct {
 	VideoPacketsSent uint32
 	VideoBytesSent   uint32
 
+	LatestAudioPacketTime uint32
+	LatestVideoPacketTime uint32
+
+	AudioSSRC uint32
+	VideoSSRC uint32
+
 	done chan struct{}
+}
+
+func (c *Client) sendRTCPSenderReport(ssrc uint32, rtpTimeStamp uint32, packetCount uint32, byteCount uint32) {
+	now := time.Now()
+	ntpTimeStamp := toNTPTime(now)
+
+	senderReport := &rtcp.SenderReport{
+		SSRC: ssrc,
+		NTPTime: ntpTimeStamp,
+		RTPTime: rtpTimeStamp,
+		PacketCount: packetCount,
+		OctetCount: byteCount,
+	}
+
+	_ = c.PeerConn.WriteRTCP([]rtcp.Packet{senderReport})
 }
 
 type Broadcaster struct {
@@ -83,7 +107,6 @@ func (b *Broadcaster) AddClient(client *Client) {
 					return
 				}
 
-				// Calculate when to send based on RTP timestamp delta
 				delta := pkt.Timestamp - client.masterRTPStartTime
 				targetTime := client.masterWallClockTime.Add(
 					time.Duration(delta) * time.Second / audioClockRate,
@@ -95,6 +118,7 @@ func (b *Broadcaster) AddClient(client *Client) {
 				}
 
 				_ = client.AudioTrack.WriteRTP(pkt)
+				atomic.StoreUint32(&client.LatestAudioPacketTime, pkt.Timestamp)
 
 			case <-client.done:
 				return
@@ -111,7 +135,6 @@ func (b *Broadcaster) AddClient(client *Client) {
 				return
 			}
 
-			// Calculate when to send based on RTP timestamp delta
 			delta := pkt.Timestamp - client.nonMasterRTPStartTime
 			targetTime := client.nonMasterWallClockTime.Add(
 				time.Duration(delta) * time.Second / videoClockRate,
@@ -123,6 +146,7 @@ func (b *Broadcaster) AddClient(client *Client) {
 			}
 
 			_ = client.VideoTrack.WriteRTP(pkt)
+			atomic.StoreUint32(&client.LatestVideoPacketTime, pkt.Timestamp)
 
 		case <-client.done:
 			return
@@ -130,10 +154,28 @@ func (b *Broadcaster) AddClient(client *Client) {
 	}
 	}()
 
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				client.sendRTCPSenderReport(client.VideoSSRC, client.nonMasterRTPStartTime, client.VideoPacketsSent, client.VideoBytesSent)
+				client.sendRTCPSenderReport(client.AudioSSRC, client.masterRTPStartTime, client.AudioPacketsSent, client.AudioBytesSent)
+			case <-client.done:
+				return
+			}
+		}
+
+	}()
+
 	b.mu.Lock() 
 	b.clients[client.ClientID] = client
 	b.mu.Unlock()
 }
+
+
 
 func (b *Broadcaster) Start() {
 	b.mu.Lock()
@@ -141,10 +183,6 @@ func (b *Broadcaster) Start() {
 
 	go b.ingestRTP(5004, "video")
 	go b.ingestRTP(5006, "audio")
-}
-
-func startRTCPTicker(b *Broadcaster) {
-
 }
 
 func (b *Broadcaster) ingestRTP(port int, mediaType string) {
@@ -161,7 +199,6 @@ func (b *Broadcaster) ingestRTP(port int, mediaType string) {
 			fmt.Println("Read error:", err)
 			continue
 		}
-		// fmt.Println("Received an", mediaType, "Packet")
 		packet := make([]byte, n)
 		copy(packet, buf[:n])
 		b.forwardRTP(packet, mediaType)

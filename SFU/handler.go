@@ -50,14 +50,7 @@ func handleOffer(clientID string, offerSDP string) {
 	 	}
 	})
 
-	
-	broadcaster.AddClient(
-		&Client{
-		ClientID: clientID,
-		PeerConn: pc,
-		VideoTrack: videoTrack,
-		AudioTrack: audioTrack,
-	})
+
 	
 	err = pc.SetRemoteDescription(
 		webrtc.SessionDescription{
@@ -70,8 +63,19 @@ func handleOffer(clientID string, offerSDP string) {
 		return
 	}
 
-	pc.AddTrack(audioTrack)
-	pc.AddTrack(videoTrack)
+	audioSender, _ := pc.AddTrack(audioTrack)
+	videoSender, _ := pc.AddTrack(videoTrack)
+
+	broadcaster.AddClient(
+		&Client{
+		ClientID: clientID,
+		PeerConn: pc,
+		VideoTrack: videoTrack,
+		AudioTrack: audioTrack,
+		AudioSSRC: uint32(audioSender.GetParameters().Encodings[0].SSRC),
+		VideoSSRC: uint32(videoSender.GetParameters().Encodings[0].SSRC),
+		})
+
 	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
 		if c != nil { 
 			candidateJSON := c.ToJSON()
