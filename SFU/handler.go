@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"webrtc-gateway/signal"
 
+	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v3"
 )
 
@@ -66,6 +67,9 @@ func handleOffer(clientID string, offerSDP string) {
 	audioSender, _ := pc.AddTrack(audioTrack)
 	videoSender, _ := pc.AddTrack(videoTrack)
 
+	readRTCPFeedback(audioSender, "audio")
+	readRTCPFeedback(videoSender, "video")
+
 	broadcaster.AddClient(
 		&Client{
 		ClientID: clientID,
@@ -117,6 +121,45 @@ func handleOffer(clientID string, offerSDP string) {
 		},
 	})
 }
+
+func readRTCPFeedback(sender *webrtc.RTPSender, label string) {
+    go func() {
+        buf := make([]byte, 1500)
+        for {
+            n, _, err := sender.Read(buf)
+            if err != nil {
+                fmt.Printf("RTCP read error (%s): %v\n", label, err)
+                return
+            }
+
+            pkts, err := rtcp.Unmarshal(buf[:n])
+            if err != nil {
+                fmt.Printf("Failed to parse RTCP (%s): %v\n", label, err)
+                continue
+            }
+
+            for _, pkt := range pkts {
+                switch p := pkt.(type) {
+                case *rtcp.ReceiverReport:
+                    for _, rr := range p.Reports {
+                        fmt.Printf("[%s] RTCP RR: SSRC=%d, Lost=%d, Jitter=%d, RTT=%d\n",
+                            label, rr.SSRC, rr.TotalLost, rr.Jitter, rr.LastSenderReport)
+                        // You can use these stats to adjust bitrate or log performance
+                    }
+                case *rtcp.TransportLayerNack:
+                    fmt.Printf("[%s] RTCP NACK: %+v\n", label, p)
+                    // Optional: implement retransmission handling
+                case *rtcp.PictureLossIndication:
+                    fmt.Printf("[%s] RTCP PLI: SSRC=%d\n", label, p.MediaSSRC)
+                    // Optional: trigger keyframe from encoder
+                default:
+                    fmt.Printf("[%s] RTCP: Unhandled packet type %T\n", label, pkt)
+                }
+            }
+        }
+    }()
+}
+
 
 func handleICECandidate(clientID string, payload signal.IceCandidatePayload) {
 	client, ok := broadcaster.GetClient(clientID)
