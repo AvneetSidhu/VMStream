@@ -7,13 +7,14 @@ import (
 
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v3"
+	"go.uber.org/zap"
 )
 
 func webRTCConnectionCleanup(clientID string) {
 	if client, ok := broadcaster.GetClient(clientID); ok {
 		_ = client.PeerConn.Close()
 		broadcaster.RemoveClient(clientID)
-		fmt.Println("Ended webRTC connection for: ", clientID)
+		logger.Info("Ended webRTC connection for: " + clientID)
 	}
 }
 
@@ -38,15 +39,14 @@ func handleOffer(clientID string, offerSDP string) {
 
 	pc, err := webrtc.NewPeerConnection(config)
 	if err != nil {
-		fmt.Println("Error Creating New Peer Connection for client: " + clientID)
-		fmt.Println(err)
+		logger.Error("Error Creating New Peer Connection", zap.String("clientID", clientID), zap.Error(err))
 		return
 	}
 
 	pc.OnConnectionStateChange(func (state webrtc.PeerConnectionState){
 		fmt.Println("connection status: ", state)
 		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
-			fmt.Println("WebRTC Connection Terminated for client: " + clientID)
+			logger.Info("WebRTC Connection Terminated for client: " + clientID)
 			webRTCConnectionCleanup(clientID)
 	 	}
 	})
@@ -58,7 +58,7 @@ func handleOffer(clientID string, offerSDP string) {
 	})
 
 	if err != nil {
-		fmt.Println("Error Setting Remote Description for client: " + clientID)
+		logger.Error("Error Setting Remote Description", zap.String("clientID", clientID), zap.Error(err))
 		return
 	}
 
@@ -66,7 +66,7 @@ func handleOffer(clientID string, offerSDP string) {
 	videoSender, _ := pc.AddTrack(videoTrack)
 
 	pc.OnDataChannel(func(d *webrtc.DataChannel) {
-		fmt.Println("Data channel opened:", d.Label())
+		logger.Info("Data channel opened", zap.String("label", d.Label()), zap.String("clientID", clientID))
 	})
 
 	readRTCPFeedback(audioSender, "audio")
@@ -87,7 +87,7 @@ func handleOffer(clientID string, offerSDP string) {
 			candidateJSON := c.ToJSON()
 			jsonStr, _ := json.Marshal(candidateJSON)
 			if candidateJSON.SDPMid == nil || *candidateJSON.SDPMid == "" || candidateJSON.SDPMLineIndex == nil {
-				fmt.Println("Skipping ICE candidate with missing or empty sdpMid / sdpMLineIndex:", string(jsonStr))
+				logger.Warn("Skipping ICE candidate with missing or empty sdpMid / sdpMLineIndex", zap.String("candidate", string(jsonStr)))
 				return
 			}
 			
@@ -106,7 +106,7 @@ func handleOffer(clientID string, offerSDP string) {
 
 	answer, err := pc.CreateAnswer(nil)
 	if err != nil {
-		fmt.Println("Error Creating Answer for client: " + clientID)
+		logger.Error("Error Creating Answer", zap.String("clientID", clientID), zap.Error(err))
 	}
 	pc.SetLocalDescription(answer)
 
@@ -125,55 +125,66 @@ func handleOffer(clientID string, offerSDP string) {
 }
 
 func readRTCPFeedback(sender *webrtc.RTPSender, label string) {
-    go func() {
-        buf := make([]byte, 1500)
-        for {
-            n, _, err := sender.Read(buf)
-            if err != nil {
-                fmt.Printf("RTCP read error (%s): %v\n", label, err)
-                return
-            }
+	go func() {
+		buf := make([]byte, 1500)
+		for {
+			n, _, err := sender.Read(buf)
+			if err != nil {
+				logger.Error("RTCP read error", zap.String("label", label), zap.Error(err))
+				return
+			}
 
-            pkts, err := rtcp.Unmarshal(buf[:n])
-            if err != nil {
-                fmt.Printf("Failed to parse RTCP (%s): %v\n", label, err)
-                continue
-            }
+			pkts, err := rtcp.Unmarshal(buf[:n])
+			if err != nil {
+				logger.Error("RTCP unmarshal error", zap.String("label", label), zap.Error(err))
+				continue
+			}
 
-            for _, pkt := range pkts {
-                switch p := pkt.(type) {
-                case *rtcp.ReceiverReport:
-                    for _, rr := range p.Reports {
-                        fmt.Printf("[%s] RTCP RR: SSRC=%d, Lost=%d, Jitter=%d, RTT=%d\n",
-                            label, rr.SSRC, rr.TotalLost, rr.Jitter, rr.LastSenderReport)
-                        // You can use these stats to adjust bitrate or log performance
-                    }
-                case *rtcp.TransportLayerNack:
-                    fmt.Printf("[%s] RTCP NACK: %+v\n", label, p)
-                    // Optional: implement retransmission handling
-                case *rtcp.PictureLossIndication:
-                    fmt.Printf("[%s] RTCP PLI: SSRC=%d\n", label, p.MediaSSRC)
-                    // Optional: trigger keyframe from encoder
-                default:
-                    fmt.Printf("[%s] RTCP: Unhandled packet type %T\n", label, pkt)
-                }
-            }
-        }
-    }()
+			for _, pkt := range pkts {
+				switch p := pkt.(type) {
+				case *rtcp.ReceiverReport:
+					for _, rr := range p.Reports {
+						logger.Info("RTCP Receiver Report",
+							zap.String("label", label),
+							zap.Uint32("ssrc", rr.SSRC),
+							zap.Uint32("lost", rr.TotalLost),
+							zap.Uint32("jitter", rr.Jitter),
+							zap.Uint32("rtt", rr.LastSenderReport),
+						)
+					}
+				case *rtcp.TransportLayerNack:
+					logger.Info("RTCP NACK received",
+						zap.String("label", label),
+						zap.Any("nack", p),
+					)
+				case *rtcp.PictureLossIndication:
+					logger.Info("RTCP PLI received",
+						zap.String("label", label),
+						zap.Uint32("media_ssrc", p.MediaSSRC),
+					)
+				default:
+					logger.Info("Unhandled RTCP packet type",
+						zap.String("label", label),
+						zap.String("type", fmt.Sprintf("%T", pkt)),
+					)
+				}
+			}
+		}
+	}()
 }
+
 
 
 func handleICECandidate(clientID string, payload signal.IceCandidatePayload) {
 	client, ok := broadcaster.GetClient(clientID)
 	if ok {
 		pc := client.PeerConn
-		// fmt.Println("received from client:", payload)
 		pc.AddICECandidate(webrtc.ICECandidateInit{
 			Candidate: payload.Candidate,
 			SDPMid: &payload.SDPMid,
 			SDPMLineIndex: &payload.SDPMLineIndex,
 		})
 	} else {
-		fmt.Println("Error accesing peer connection: " + clientID)
+		logger.Error("Error accessing peer connection", zap.String("clientID", clientID))
 	}
 }

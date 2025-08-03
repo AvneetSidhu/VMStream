@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	sfu "webrtc-gateway/SFU"
+	sfu "webrtc-gateway/sfu"
 	"webrtc-gateway/signal"
 
 	"github.com/joho/godotenv"

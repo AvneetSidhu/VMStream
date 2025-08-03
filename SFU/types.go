@@ -11,6 +11,7 @@ import (
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
+	"go.uber.org/zap"
 )
 
 type Client struct {
@@ -69,34 +70,6 @@ func (b *Broadcaster) AddClient(client *Client) {
 	client.videoChan = make(chan *rtp.Packet, 1000)
 
 	client.done = make(chan struct{})
-	
-	// go func() {
-	// 	for {
-	// 		select {
-	// 		case pkt, ok := <-client.audioChan:
-	// 			if !ok {
-	// 				return // channel closed
-	// 			}
-	// 			_ = client.AudioTrack.WriteRTP(pkt)
-	// 		case <-client.done:
-	// 			return
-	// 		}
-	// 	}
-	// }()
-
-	// go func() {
-	// 	for {
-	// 		select {
-	// 		case pkt, ok := <-client.videoChan:
-	// 			if !ok {
-	// 				return
-	// 			}
-	// 			_ = client.VideoTrack.WriteRTP(pkt)
-	// 		case <-client.done:
-	// 			return
-	// 		}
-	// 	}
-	// }()
 
 	go func() {
 		const audioClockRate = 48000
@@ -188,15 +161,16 @@ func (b *Broadcaster) Start() {
 func (b *Broadcaster) ingestRTP(port int, mediaType string) {
 	conn, err := net.ListenPacket("udp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
-		fmt.Printf("Failed to listen on %d: %v", port , err)
+		logger.Fatal("Failed to listen on port", zap.Int("port", port), zap.Error(err))
+		return
 	}
 	defer conn.Close()
-	fmt.Println("Listening on port:", port, "for ", mediaType)
+	logger.Info("Listening on port", zap.Int("port", port), zap.String("mediaType", mediaType))
 	buf := make([]byte, 1500)
 	for {
 		n, _, err := conn.ReadFrom(buf)
 		if err != nil {
-			fmt.Println("Read error:", err)
+			logger.Error("Read error", zap.Error(err))
 			continue
 		}
 		packet := make([]byte, n)
@@ -239,12 +213,13 @@ func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
 
 	rtpPacket := &rtp.Packet{}
 	if err := rtpPacket.Unmarshal(packet); err != nil {
-		fmt.Println("Failed to unmarshal RTP:", err)
+		logger.Error("Failed to unmarshal RTP packet", zap.Error(err))
 		return
 	}
 
 	for _, client := range clients {
 		packetCopy := *rtpPacket
+		packetCopy.Payload = append([]byte(nil), rtpPacket.Payload...) // deep copy
 		payloadSize := uint32(len(packetCopy.Payload))
 
 		switch mediaType {
@@ -259,17 +234,14 @@ func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
 			select {
 			case client.audioChan <- &packetCopy:
 			default:
-
 				select {
-				case <-client.audioChan: // drop the oldest packet and try to send the new one
+				case <-client.audioChan: // Drop oldest
 				default:
-					fmt.Printf("Client %s audio channel is full, dropping packet\n", client.ClientID)
 				}
-
 				select {
 				case client.audioChan <- &packetCopy:
 				default:
-					fmt.Printf("Client %s audio channel is full, dropping packet\n", client.ClientID)
+					logger.Warn("Client audio channel is full, dropping audio packet", zap.String("clientID", client.ClientID))
 				}
 			}
 
@@ -284,22 +256,20 @@ func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
 			select {
 			case client.videoChan <- &packetCopy:
 			default:
-
 				select {
-				case <-client.videoChan: // drop the oldest packet and try to send the new one
+				case <-client.videoChan: // Drop oldest
 				default:
-					fmt.Printf("Client %s video channel is full, dropping packet\n", client.ClientID)
 				}
-
 				select {
 				case client.videoChan <- &packetCopy:
 				default:
-					fmt.Printf("Client %s video channel is full, dropping packet\n", client.ClientID)
+					logger.Warn("Client video channel is full, dropping video packet", zap.String("clientID", client.ClientID))
 				}
 			}
 		}
 	}
 }
+
 
 
 
