@@ -4,15 +4,16 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+
+	"go.uber.org/zap"
 )
 
 func storeUser(username, hashedPassword string) error {
-	// Open the CSV file
 	file, err := os.OpenFile("db.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	defer file.Close()
 
 	if err != nil {
-		fmt.Println("Error opening file:", err)
+		logger.Error("Error opening file:", zap.Error(err))
 	}
 
 	writer := csv.NewWriter(file)
@@ -26,7 +27,7 @@ func storeUser(username, hashedPassword string) error {
 func userExists(username string) bool {
 	file, err := os.Open("db.csv")
 	if err != nil {
-		fmt.Println("Error opening file:", err)
+		logger.Error("Error opening file:", zap.Error(err))
 		return false
 	}
 	defer file.Close()
@@ -34,11 +35,10 @@ func userExists(username string) bool {
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
 	if err != nil {
-		fmt.Println("Error reading file:", err)
+		logger.Error("Error reading file:", zap.Error(err))
 		return false
 	}
 
-	// Check if the username exists
 	for _, record := range records {
 		if record[0] == username {
 			return true
@@ -49,10 +49,9 @@ func userExists(username string) bool {
 }
 
 func getUser(username string) (string, error) {
-	// Open the CSV file
 	file, err := os.Open("db.csv")
 	if err != nil {
-		fmt.Println("Error opening file:", err)
+		logger.Error("Error opening file:", zap.Error(err))
 		return "", err
 	}
 	defer file.Close()
@@ -60,7 +59,7 @@ func getUser(username string) (string, error) {
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
 	if err != nil {
-		fmt.Println("Error reading file:", err)
+		logger.Error("Error reading file:", zap.Error(err))
 		return "", err
 	}
 

@@ -11,7 +11,6 @@ func createErrorMessage(err error) (Message) {
 		Type: "error",
 		ClientID: "",
 		Payload: json.RawMessage(fmt.Sprintf(`{"error": "%s"}`, err.Error())),
-		// Auth: "",
 	}
 }
 
@@ -33,15 +32,15 @@ func checkFields(msg Message) (error) {
 	if msg.Type == "" {
 		return fmt.Errorf("missing or empty field: type")
 	}
+
 	if msg.ClientID == "" {
 		return fmt.Errorf("missing or empty field: clientId")
 	}
+
 	if len(msg.Payload) == 0 {
 		return fmt.Errorf("missing or empty field: payload")
 	}
-	// if msg.Auth == "" {
-	// 	return fmt.Errorf("missing or empty field: auth")
-	// }
+
 	return nil
 }
 

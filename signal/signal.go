@@ -3,16 +3,16 @@ package signal
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 var (
 	mu      sync.RWMutex
-	clients = make(map[string]*websocket.Conn) // map of client_id to connection
+	clients = make(map[string]*websocket.Conn) 
 )
 
 var upgrader = websocket.Upgrader{
@@ -43,33 +43,34 @@ func handleMessage(msg Message)(SFUMessage, error) {
 		if err := decodePayload(msg.Payload, &payload); err != nil {
 			return nil, err
 		}
-		// fmt.Printf("Received offer from client %s: %s\n", msg.ClientID, payload.SDP)
+		logger.Info("Received offer from client", zap.String("client_id", msg.ClientID), zap.String("sdp", payload.SDP))
 		return &SFUOffer{ClientID: msg.ClientID, Type:"offer", Payload: payload}, nil
 	case "answer":
 		var payload AnswerPayload
 		if err := decodePayload(msg.Payload, &payload); err != nil {
 			return nil, err
 		}
-		// fmt.Printf("Received answer from client %s: %s\n", msg.ClientID, payload.SDP)
-		return &SFUAnswer{ClientID: msg.ClientID, Type:"answer", Payload: payload}, nil
+		logger.Info("Received answer from client", zap.String("client_id", msg.ClientID), zap.String("sdp", payload.SDP))
+		return &SFUAnswer{ClientID: msg.ClientID, Type: "answer", Payload: payload}, nil
 	case "ice-candidate":
 		var payload IceCandidatePayload
 		if err := decodePayload(msg.Payload, &payload); err != nil {
 			return nil, err
 		}
-		// fmt.Printf("Received ICE candidate from client %s: %s\n", msg.ClientID, payload.Candidate)
-		return &SFUIceCandidate{ClientID: msg.ClientID, Type:"ice-candidate", Payload: payload}, nil
+		logger.Info("Received ICE candidate from client", zap.String("client_id", msg.ClientID), zap.String("candidate", payload.Candidate))
+		return &SFUIceCandidate{ClientID: msg.ClientID, Type: "ice-candidate", Payload: payload}, nil
 	case "termination":
-		fmt.Println("Successful webRTC handshake: Terminating WebSocket")
+		logger.Info("Client disconnected from signaling websocket, WebRTC Connection Success!", zap.String("client_id", msg.ClientID))
 		return nil, nil
 	default:
+		logger.Warn("Unknown message type", zap.String("type", msg.Type))
 		return nil, fmt.Errorf("unknown message type: %s", msg.Type)
 	}
 }
 
 func messageLoopCleanup(clientID string) {
-	removeClient(clientID) // remove client from connection manager
-	fmt.Println("Client disconnected from signaling websocket:", clientID)
+	removeClient(clientID)
+	logger.Info("Client disconnected from signaling websocket", zap.String("client_id", clientID))
 }
 
 func sendMessage(conn *websocket.Conn, msg SFUMessage) {
@@ -79,64 +80,61 @@ func sendMessage(conn *websocket.Conn, msg SFUMessage) {
 	case *SFUAnswer:
 		conn.WriteJSON(msg)
 	default:
-		log.Println("Unknown Message Type")
+		logger.Warn("Unknown Message Type")
 	}
 }
 
-func pionReadLoop() {
+func sfuReadLoop() {
 	for msg := range FromSFU {
 		mu.RLock()
 		conn, ok := clients[msg.GetClientID()]
 		mu.RUnlock()
-		// fmt.Println("received a message from SFU for client: " + msg.GetClientID() + " of type: " + msg.GetType())
 		if !ok {
-			fmt.Printf("Client %s not connected\n", msg.GetClientID())
+			logger.Warn("Client not connected", zap.String("client_id", msg.GetClientID()))
 			continue
 		}
-		sendMessage(conn, msg) // broadcast message to all clients
+
+		sendMessage(conn, msg)
 	}
 }
 
 func StartSFUMessageLoop() {
-	go pionReadLoop() // start Pion read loop
+	go sfuReadLoop() 
 }
 
 func clientMessageLoop(conn *websocket.Conn, clientID string) {
-	defer messageLoopCleanup(clientID) // cleanup on exit
+	defer messageLoopCleanup(clientID)
 	for {
 		_, msgBytes, err := conn.ReadMessage()
-
 		if err != nil {
-			fmt.Println("Error reading message:", err)
+			logger.Error("Error reading message from client", zap.String("client_id", clientID), zap.Error(err))
 			break
 		}
 
-		decodedMsg, decodeErr := decodeMessage(msgBytes) // decode message
+		decodedMsg, decodeErr := decodeMessage(msgBytes)
 
 		if decodeErr != nil {
-			fmt.Println("Error decoding message:", decodeErr)
+			logger.Error("Error decoding message", zap.Error(decodeErr))
 			errorMsgBytes, _ := json.Marshal(createErrorMessage(decodeErr))
 			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
 			break
 		}
 
-		fieldsErr := checkFields(decodedMsg) // check message is correctly formed before decoding
-
+		fieldsErr := checkFields(decodedMsg) 
 		if fieldsErr != nil {
-			fmt.Println("Error checking fields:", fieldsErr)
+			logger.Error("Error checking fields in message", zap.Error(fieldsErr))
 			errorMsgBytes, _ := json.Marshal(createErrorMessage(fieldsErr))
 			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
 			break
 		}
 
-		toForward, handlingErr := handleMessage(decodedMsg) // handle message
-
+		toForward, handlingErr := handleMessage(decodedMsg) 
 		if handlingErr != nil {
-			fmt.Println("Error handling message:", handlingErr)
+			logger.Error("Error handling message", zap.Error(handlingErr))
 			errorMsgBytes, _ := json.Marshal(createErrorMessage(handlingErr))
 			conn.WriteMessage(websocket.TextMessage, errorMsgBytes)
 			break
-		} // broadcast to Pion
+		}
 		
 		if toForward == nil {
 			break

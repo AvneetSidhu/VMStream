@@ -51,8 +51,6 @@ func handleOffer(clientID string, offerSDP string) {
 	 	}
 	})
 
-
-	
 	err = pc.SetRemoteDescription(
 		webrtc.SessionDescription{
 		Type: webrtc.SDPTypeOffer,
@@ -66,6 +64,10 @@ func handleOffer(clientID string, offerSDP string) {
 
 	audioSender, _ := pc.AddTrack(audioTrack)
 	videoSender, _ := pc.AddTrack(videoTrack)
+
+	pc.OnDataChannel(func(d *webrtc.DataChannel) {
+		fmt.Println("Data channel opened:", d.Label())
+	})
 
 	readRTCPFeedback(audioSender, "audio")
 	readRTCPFeedback(videoSender, "video")

@@ -1,15 +1,17 @@
 package signal
 
-var jwtSecret string
-var pionName string
+import "go.uber.org/zap"
 
-var FromSFU = make(chan SFUMessage, 1000) // channel for messages to be read from pion
-var ToSFU = make(chan SFUMessage, 1000)   // channel for messages to send to pion
+var jwtSecret string
+var logger *zap.Logger
+
+var FromSFU = make(chan SFUMessage, 1000)
+var ToSFU = make(chan SFUMessage, 1000)   
 
 func SetJWTSecret(secret string) {
 	jwtSecret = secret
 }
 
-func SetPionName(name string) {
-	pionName = name
+func SetLogger(l *zap.Logger) {
+	logger = l
 }

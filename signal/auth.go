@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -19,7 +20,7 @@ func hashPassword(password string) (string, error) {
 func getHashedPassword(username string) (string, error) {
 	user, err := getUser(username)
 	if err != nil {
-		fmt.Println("Error getting user:", err)
+		logger.Error("Error getting user:", zap.Error(err))
 		return "", err
 	}
 	return user, nil
@@ -43,12 +44,15 @@ func generateJWTToken(clientID string) (string, error) {
 func validateJWTToken(tokenString string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			err := fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			logger.Error("JWT signing method error", zap.Error(err))
+			return nil, err
 		}
 		return []byte(jwtSecret), nil
 	})
 
 	if err != nil {
+		logger.Error("Error parsing JWT token", zap.Error(err))
 		return "", err
 	}
 
@@ -57,34 +61,22 @@ func validateJWTToken(tokenString string) (string, error) {
 		return clientID, nil
 	}
 
-	return "", fmt.Errorf("invalid token")
+	err = fmt.Errorf("invalid token")
+	logger.Error("JWT token invalid", zap.Error(err))
+	return "", err
 }
 
-
-func validateClientToken(clientID string, clientToken string) (bool) {
+func validateClientToken(clientID string, clientToken string) bool {
 	extractedUsername, err := validateJWTToken(clientToken)
 	if err != nil {
-		fmt.Println("Error validating client token:", err)
+		logger.Error("Error validating client token", zap.Error(err))
 		return false
 	}
 
 	if clientID != extractedUsername {
-		fmt.Println("Client ID does not match token username for user:", clientID)
+		logger.Warn("Client ID does not match token username", zap.String("clientID", clientID), zap.String("extractedUsername", extractedUsername))
 		return false
 	}
-	return true && userExists(clientID)
+
+	return userExists(clientID)
 }
-
-// func validatePionToken(clientToken string) (bool) {
-// 	extractedUsername, err := validateJWTToken(clientToken)
-// 	if err != nil {
-// 		fmt.Println("Error validating client token:", err)
-// 		return false
-// 	}
-
-// 	if pionName != extractedUsername {
-// 		fmt.Println("Pion connection auth token does not match Pion name for user:", clientToken)
-// 		return false
-// 	}
-// 	return true
-// }

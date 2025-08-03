@@ -18,7 +18,6 @@ type Message struct {
 	Type     string          `json:"type"`
 	ClientID string          `json:"clientId"`
 	Payload  json.RawMessage `json:"payload"`
-	// Auth string `json:"auth"`
 }
 
 type Payload interface {
