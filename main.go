@@ -48,7 +48,6 @@ func InitLogger() *zap.Logger {
 	default:
 		level = zap.InfoLevel // default if unspecified or invalid
 	}
-
 	cfg := zap.NewProductionConfig()
 	cfg.Level = zap.NewAtomicLevelAt(level)
 
@@ -61,13 +60,13 @@ func InitLogger() *zap.Logger {
 }
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		return
+	}
 	logger := InitLogger()
 	defer logger.Sync()
 
-	if err := godotenv.Load(); err != nil {
-		logger.Error("Error loading .env file", zap.Error(err))
-		return
-	}
+
 
 	logger.Info("Starting SFU Server...")
 
