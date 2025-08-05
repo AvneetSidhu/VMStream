@@ -44,7 +44,7 @@ func handleOffer(clientID string, offerSDP string) {
 	}
 
 	pc.OnConnectionStateChange(func (state webrtc.PeerConnectionState){
-		fmt.Println("connection status: ", state)
+		logger.Info("WebRTC Connection State has changed to " + state.String() + " for client: " + clientID)
 		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
 			logger.Info("WebRTC Connection Terminated for client: " + clientID)
 			webRTCConnectionCleanup(clientID)
