@@ -27,6 +27,28 @@ func parsePayload(data []byte, v interface{}) error {
 	return nil
 }
 
+func handleMouseInput(x float64, y float64, action string) {
+	actualX := int(1280 * x)
+	actualY := int(800 * y)
+
+	switch action {
+	case "move":
+		robotgo.Move(actualX, actualY)
+	case "left-click":
+		robotgo.Click("left")
+	case "right-click":
+		robotgo.Click("right")
+	default:
+		logger.Warn("Unknown mouse action", zap.String("action", action))
+	}
+}
+
+func handleKeyboardInput(key string) {
+	robotgo.KeyToggle(key, true)
+	robotgo.KeyToggle(key, false)
+	logger.Debug("Handled keyboard input", zap.String("key", key))
+}
+
 func handleInput(dc *webrtc.DataChannel) {
 	logger.Info("Handling input data channel", zap.String("label", dc.Label()))
 	var message InputMessage
@@ -38,20 +60,11 @@ func handleInput(dc *webrtc.DataChannel) {
 		case "key":
 			var payload KeyboardInputPayload
 			parsePayload(message.Payload, &payload)
-			robotgo.KeyToggle(payload.Key, true)
-			robotgo.KeyToggle(payload.Key, false)
-		case "mouse-move":
+			handleKeyboardInput(payload.Key)
+		case "mouse":
 			var payload MouseInputPayload
 			parsePayload(message.Payload, &payload)
-			robotgo.Move(payload.X, payload.Y)
-		case "mouse-click-left":
-			var payload MouseInputPayload
-			parsePayload(message.Payload, &payload)
-			robotgo.Click("left")
-		case "mouse-click-right":
-			var payload MouseInputPayload
-			parsePayload(message.Payload, &payload)
-			robotgo.Click("right")
+			handleMouseInput(payload.X, payload.Y, payload.Action)
 		default:
 			logger.Warn("Unknown input message type", zap.String("type", message.Type))
 		}
