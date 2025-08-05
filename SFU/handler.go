@@ -148,7 +148,7 @@ func readRTCPFeedback(sender *webrtc.RTPSender, label string) {
 				switch p := pkt.(type) {
 				case *rtcp.ReceiverReport:
 					for _, rr := range p.Reports {
-						logger.Info("RTCP Receiver Report",
+						logger.Debug("RTCP Receiver Report",
 							zap.String("label", label),
 							zap.Uint32("ssrc", rr.SSRC),
 							zap.Uint32("lost", rr.TotalLost),
@@ -157,17 +157,17 @@ func readRTCPFeedback(sender *webrtc.RTPSender, label string) {
 						)
 					}
 				case *rtcp.TransportLayerNack:
-					logger.Info("RTCP NACK received",
+					logger.Debug("RTCP NACK received",
 						zap.String("label", label),
 						zap.Any("nack", p),
 					)
 				case *rtcp.PictureLossIndication:
-					logger.Info("RTCP PLI received",
+					logger.Debug("RTCP PLI received",
 						zap.String("label", label),
 						zap.Uint32("media_ssrc", p.MediaSSRC),
 					)
 				default:
-					logger.Info("Unhandled RTCP packet type",
+					logger.Debug("Unhandled RTCP packet type",
 						zap.String("label", label),
 						zap.String("type", fmt.Sprintf("%T", pkt)),
 					)
