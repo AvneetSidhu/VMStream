@@ -38,7 +38,8 @@ func handleInput(dc *webrtc.DataChannel) {
 		case "key":
 			var payload KeyboardInputPayload
 			parsePayload(message.Payload, &payload)
-			robotgo.KeyToggle(payload.Key, payload.Action)
+			robotgo.KeyToggle(payload.Key, true)
+			robotgo.KeyToggle(payload.Key, false)
 		case "mouse-move":
 			var payload MouseInputPayload
 			parsePayload(message.Payload, &payload)
