@@ -43,21 +43,21 @@ func handleMessage(msg Message)(SFUMessage, error) {
 		if err := decodePayload(msg.Payload, &payload); err != nil {
 			return nil, err
 		}
-		logger.Info("Received offer from client", zap.String("client_id", msg.ClientID), zap.String("sdp", payload.SDP))
+		logger.Debug("Received offer from client", zap.String("client_id", msg.ClientID), zap.String("sdp", payload.SDP))
 		return &SFUOffer{ClientID: msg.ClientID, Type:"offer", Payload: payload}, nil
 	case "answer":
 		var payload AnswerPayload
 		if err := decodePayload(msg.Payload, &payload); err != nil {
 			return nil, err
 		}
-		logger.Info("Received answer from client", zap.String("client_id", msg.ClientID), zap.String("sdp", payload.SDP))
+		logger.Debug("Received answer from client", zap.String("client_id", msg.ClientID), zap.String("sdp", payload.SDP))
 		return &SFUAnswer{ClientID: msg.ClientID, Type: "answer", Payload: payload}, nil
 	case "ice-candidate":
 		var payload IceCandidatePayload
 		if err := decodePayload(msg.Payload, &payload); err != nil {
 			return nil, err
 		}
-		logger.Info("Received ICE candidate from client", zap.String("client_id", msg.ClientID), zap.String("candidate", payload.Candidate))
+		logger.Debug("Received ICE candidate from client", zap.String("client_id", msg.ClientID), zap.String("candidate", payload.Candidate))
 		return &SFUIceCandidate{ClientID: msg.ClientID, Type: "ice-candidate", Payload: payload}, nil
 	case "termination":
 		logger.Info("Client disconnected from signaling websocket, WebRTC Connection Success!", zap.String("client_id", msg.ClientID))
