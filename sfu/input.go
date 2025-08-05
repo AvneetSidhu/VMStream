@@ -44,8 +44,7 @@ func handleMouseInput(x float64, y float64, action string) {
 }
 
 func handleKeyboardInput(key string) {
-	robotgo.KeyToggle(key, true)
-	robotgo.KeyToggle(key, false)
+	robotgo.KeyPress(key)
 	logger.Debug("Handled keyboard input", zap.String("key", key))
 }
 
