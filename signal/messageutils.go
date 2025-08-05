@@ -23,7 +23,7 @@ func decodeMessage(msgBytes []byte) (Message, error) {
 	return msg, err
 }	
 
-func decodePayload[T any](payloadBytes []byte, out *T) error {
+func decodePayload[T any](payloadBytes []byte, out *T) error { //decodes un-decoded payloads of decoded messages
 	return json.Unmarshal(payloadBytes, out)
 }
 

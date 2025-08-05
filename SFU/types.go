@@ -1,6 +1,7 @@
 package sfu
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"sync"
@@ -44,6 +45,26 @@ type Client struct {
 	done chan struct{}
 }
 
+type Broadcaster struct {
+	mu sync.RWMutex
+	clients map[string]*Client
+}
+
+type InputMessage struct {
+	Type string `json:"type"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+type KeyboardInputPayload struct {
+	Key string `json:"key"`
+	Action string `json:"action"`
+}
+
+type MouseInputPayload struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
 func (c *Client) sendRTCPSenderReport(ssrc uint32, rtpTimeStamp uint32, packetCount uint32, byteCount uint32) {
 	now := time.Now()
 	ntpTimeStamp := toNTPTime(now)
@@ -57,11 +78,6 @@ func (c *Client) sendRTCPSenderReport(ssrc uint32, rtpTimeStamp uint32, packetCo
 	}
 
 	_ = c.PeerConn.WriteRTCP([]rtcp.Packet{senderReport})
-}
-
-type Broadcaster struct {
-	mu sync.RWMutex
-	clients map[string]*Client
 }
 
 func (b *Broadcaster) AddClient(client *Client) {

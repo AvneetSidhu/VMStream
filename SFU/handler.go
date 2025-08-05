@@ -65,8 +65,12 @@ func handleOffer(clientID string, offerSDP string) {
 	audioSender, _ := pc.AddTrack(audioTrack)
 	videoSender, _ := pc.AddTrack(videoTrack)
 
-	pc.OnDataChannel(func(d *webrtc.DataChannel) {
-		logger.Info("Data channel opened", zap.String("label", d.Label()), zap.String("clientID", clientID))
+	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
+		logger.Info("Data channel opened", zap.String("label", dc.Label()), zap.String("clientID", clientID))
+
+		if dc.Label() == "input" {
+			handleInput(dc)
+		}
 	})
 
 	readRTCPFeedback(audioSender, "audio")
