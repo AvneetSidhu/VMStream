@@ -63,6 +63,7 @@ type KeyboardInputPayload struct {
 type MouseInputPayload struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
+	Action string `json:"action"`
 }
 
 func (c *Client) sendRTCPSenderReport(ssrc uint32, rtpTimeStamp uint32, packetCount uint32, byteCount uint32) {
