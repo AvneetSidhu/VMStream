@@ -28,8 +28,8 @@ func parsePayload(data []byte, v interface{}) error {
 }
 
 func handleMouseInput(x float64, y float64, action string) {
-	actualX := int(1280 * x)
-	actualY := int(800 * y)
+	actualX := int(float64(width) * x)
+	actualY := int(float64(height) * y)
 
 	switch action {
 	case "move":

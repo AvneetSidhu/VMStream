@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	sfu "webrtc-gateway/sfu"
 	"webrtc-gateway/signal"
@@ -29,7 +30,11 @@ func startSignalServer(jwtSecret string, logger *zap.Logger) {
 
 func startSFU(logger *zap.Logger) {
 	sfu.SetLogger(logger)
-	go sfu.Start()
+	widthStr := os.Getenv("WIDTH")
+	heightStr := os.Getenv("HEIGHT")
+	width, _ := strconv.Atoi(widthStr)
+	height, _ := strconv.Atoi(heightStr)
+	go sfu.Start(width, height)
 }
 
 func InitLogger() *zap.Logger {

@@ -9,6 +9,9 @@ import (
 var FromSignal chan signal.SFUMessage
 var ToSignal chan signal.SFUMessage
 
+var height int
+var width int
+
 var logger *zap.Logger
 
 func SetLogger(l *zap.Logger) {

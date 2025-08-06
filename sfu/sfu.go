@@ -9,7 +9,10 @@ var peers = make(map[string]Client)
 var mu = sync.RWMutex{}
 var broadcaster Broadcaster
 
-func Start() {
+func Start(w int, h int) {
+
+	width = w
+	height = h
 
 	broadcaster = Broadcaster {
 		mu: sync.RWMutex{},
