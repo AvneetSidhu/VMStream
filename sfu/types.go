@@ -172,7 +172,6 @@ func (b *Broadcaster) AddClient(client *Client) {
 	b.mu.Lock() 
 	b.clients[client.ClientID] = client
 	b.mu.Unlock()
-	b.SendClientList()
 }
 
 func (b *Broadcaster) Start() {

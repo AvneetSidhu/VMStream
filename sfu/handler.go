@@ -14,6 +14,7 @@ func webRTCConnectionCleanup(clientID string) {
 	if client, ok := broadcaster.GetClient(clientID); ok {
 		_ = client.PeerConn.Close()
 		broadcaster.RemoveClient(clientID)
+		broadcaster.SendClientList()
 		logger.Info("Ended webRTC connection for: " + clientID)
 	}
 }
@@ -71,6 +72,7 @@ func handleOffer(clientID string, offerSDP string) {
 			logger.Info("Data channel opened", zap.String("label", dc.Label()), zap.String("clientID", clientID))
 			dc.SendText("Welcome to the SFU!")
 			if dc.Label() == "input" {
+				broadcaster.SendClientList()
 				dataChannel = dc
 				go handleInput(dc)
 			}
