@@ -19,6 +19,7 @@ func webRTCConnectionCleanup(clientID string) {
 }
 
 func handleOffer(clientID string, offerSDP string) {
+	var dataChannel *webrtc.DataChannel
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{
@@ -67,9 +68,26 @@ func handleOffer(clientID string, offerSDP string) {
 
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
 		logger.Info("Data channel opened", zap.String("label", dc.Label()), zap.String("clientID", clientID))
-
 		if dc.Label() == "input" {
-			handleInput(dc)
+			clients := broadcaster.GetAllClientIDs()
+
+			payload, err := json.Marshal(ClientListPayload{
+				Clients: clients,
+			})
+
+			if err != nil {
+				logger.Error("Error marshalling client list payload", zap.Error(err))
+			}
+
+			broadcaster.SendMessage(dc,
+				OutgoingMessage {
+					Type: "viewer-list",
+					Payload: json.RawMessage(payload),
+				},
+			)
+
+				dataChannel = dc
+				go handleInput(dc)
 		}
 	})
 
@@ -82,6 +100,7 @@ func handleOffer(clientID string, offerSDP string) {
 		PeerConn: pc,
 		VideoTrack: videoTrack,
 		AudioTrack: audioTrack,
+		dataChan: dataChannel,
 		AudioSSRC: uint32(audioSender.GetParameters().Encodings[0].SSRC),
 		VideoSSRC: uint32(videoSender.GetParameters().Encodings[0].SSRC),
 		})
@@ -95,7 +114,6 @@ func handleOffer(clientID string, offerSDP string) {
 				return
 			}
 			
-			// fmt.Println("Sending ICE candidate JSON:", string(jsonStr))
 			sendToClient( &signal.SFUIceCandidate {
 				ClientID: clientID,
 				Type: "ice-candidate",

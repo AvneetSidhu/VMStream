@@ -71,8 +71,6 @@ func main() {
 	logger := InitLogger()
 	defer logger.Sync()
 
-
-
 	logger.Info("Starting SFU Server...")
 
 	jwtSecret := os.Getenv("JWT_SECRET")

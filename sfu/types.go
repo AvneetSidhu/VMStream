@@ -23,6 +23,7 @@ type Client struct {
 
 	audioChan chan *rtp.Packet
 	videoChan chan *rtp.Packet
+	dataChan *webrtc.DataChannel
 
 	masterRTPStartTime uint32 //audio
 	masterWallClockTime time.Time
@@ -64,6 +65,23 @@ type MouseInputPayload struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 	Action string `json:"action"`
+}
+
+type OutgoingMessage struct {
+	Type string `json:"type"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+type ClientListPayload struct {
+	Clients []string `json:"clients"`
+}
+
+type JoinPayload struct {
+	ClientID string `json:"client_id"`
+}
+
+type LeavePayload struct {
+	ClientID string `json:"client_id"`
 }
 
 func (c *Client) sendRTCPSenderReport(ssrc uint32, rtpTimeStamp uint32, packetCount uint32, byteCount uint32) {
@@ -165,8 +183,6 @@ func (b *Broadcaster) AddClient(client *Client) {
 	b.mu.Unlock()
 }
 
-
-
 func (b *Broadcaster) Start() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -223,6 +239,24 @@ func (b *Broadcaster) GetAllClients() map[string]*Client {
 		clientsCopy[k] = v
 	}
 	return clientsCopy
+}
+
+func (b *Broadcaster) GetAllClientIDs() []string {
+	clients := broadcaster.GetAllClients()
+	clientIDs := make([]string, 0, len(clients))
+	for clientID := range clients {
+		clientIDs = append(clientIDs, clientID)
+	}
+	return clientIDs
+}
+
+func (b *Broadcaster) SendMessage(dc *webrtc.DataChannel, message OutgoingMessage) {
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		logger.Error("Failed to marshal outgoing message", zap.Error(err))
+		return
+	}
+	dc.SendText(string(messageBytes))
 }
 
 func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
