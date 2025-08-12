@@ -20,7 +20,6 @@ func webRTCConnectionCleanup(clientID string) {
 }
 
 func handleOffer(clientID string, offerSDP string) {
-	var dataChannel *webrtc.DataChannel
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{
@@ -72,8 +71,19 @@ func handleOffer(clientID string, offerSDP string) {
 			logger.Info("Data channel opened", zap.String("label", dc.Label()), zap.String("clientID", clientID))
 			dc.SendText("Welcome to the SFU!")
 			if dc.Label() == "input" {
+
+				broadcaster.AddClient(
+				&Client{
+					ClientID: clientID,
+					PeerConn: pc,
+					VideoTrack: videoTrack,
+					AudioTrack: audioTrack,
+					dataChan: dc,
+					AudioSSRC: uint32(audioSender.GetParameters().Encodings[0].SSRC),
+					VideoSSRC: uint32(videoSender.GetParameters().Encodings[0].SSRC),
+				})
+
 				broadcaster.SendClientList()
-				dataChannel = dc
 				go handleInput(dc)
 			}
 		})
@@ -81,17 +91,6 @@ func handleOffer(clientID string, offerSDP string) {
 
 	readRTCPFeedback(audioSender, "audio")
 	readRTCPFeedback(videoSender, "video")
-
-	broadcaster.AddClient(
-		&Client{
-		ClientID: clientID,
-		PeerConn: pc,
-		VideoTrack: videoTrack,
-		AudioTrack: audioTrack,
-		dataChan: dataChannel,
-		AudioSSRC: uint32(audioSender.GetParameters().Encodings[0].SSRC),
-		VideoSSRC: uint32(videoSender.GetParameters().Encodings[0].SSRC),
-		})
 
 	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
 		if c != nil { 
