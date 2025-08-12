@@ -256,7 +256,7 @@ func (b *Broadcaster) SendMessage(dc *webrtc.DataChannel, message OutgoingMessag
 		logger.Error("Failed to marshal outgoing message", zap.Error(err))
 		return
 	}
-	dc.SendText(string(messageBytes))
+	dc.Send(messageBytes)
 }
 
 func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {

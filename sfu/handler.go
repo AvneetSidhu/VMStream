@@ -86,8 +86,8 @@ func handleOffer(clientID string, offerSDP string) {
 				},
 			)
 
-				dataChannel = dc
-				go handleInput(dc)
+			dataChannel = dc
+			go handleInput(dc)
 		}
 	})
 
@@ -110,7 +110,7 @@ func handleOffer(clientID string, offerSDP string) {
 			candidateJSON := c.ToJSON()
 			jsonStr, _ := json.Marshal(candidateJSON)
 			if candidateJSON.SDPMid == nil || *candidateJSON.SDPMid == "" || candidateJSON.SDPMLineIndex == nil {
-				logger.Warn("Skipping ICE candidate with missing or empty sdpMid / sdpMLineIndex", zap.String("candidate", string(jsonStr)))
+				logger.Debug("Skipping ICE candidate with missing or empty sdpMid / sdpMLineIndex", zap.String("candidate", string(jsonStr)))
 				return
 			}
 			
