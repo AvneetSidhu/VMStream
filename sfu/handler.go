@@ -71,7 +71,6 @@ func handleOffer(clientID string, offerSDP string) {
 			logger.Info("Data channel opened", zap.String("label", dc.Label()), zap.String("clientID", clientID))
 			dc.SendText("Welcome to the SFU!")
 			if dc.Label() == "input" {
-				broadcaster.SendClientList(dc)
 				dataChannel = dc
 				go handleInput(dc)
 			}

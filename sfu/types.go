@@ -92,7 +92,6 @@ func (c *Client) sendRTCPSenderReport(ssrc uint32, rtpTimeStamp uint32, packetCo
 }
 
 func (b *Broadcaster) AddClient(client *Client) {
-	
 	client.audioChan = make(chan *rtp.Packet, 1000)
 	client.videoChan = make(chan *rtp.Packet, 1000)
 
@@ -173,6 +172,7 @@ func (b *Broadcaster) AddClient(client *Client) {
 	b.mu.Lock() 
 	b.clients[client.ClientID] = client
 	b.mu.Unlock()
+	b.SendClientList()
 }
 
 func (b *Broadcaster) Start() {
@@ -251,10 +251,10 @@ func (b *Broadcaster) SendMessage(dc *webrtc.DataChannel, message OutgoingMessag
 	dc.SendText(string(messageBytes))
 }
 
-func (b *Broadcaster) SendClientList(dc *webrtc.DataChannel) {
-	clients := b.GetAllClientIDs()
+func (b *Broadcaster) SendClientList() {
+	clientIDs := b.GetAllClientIDs()
 	payload, err := json.Marshal(ClientListPayload{
-			Clients: clients,
+			Clients: clientIDs,
 		})
 
 	if err != nil {
@@ -265,7 +265,14 @@ func (b *Broadcaster) SendClientList(dc *webrtc.DataChannel) {
 		Type: "viewer-list",
 		Payload: json.RawMessage(payload),
 		}
-	b.SendMessage(dc, message)
+	
+	clients := b.GetAllClients()
+	for _, client := range clients {
+		dc := client.dataChan
+		if dc != nil && dc.ReadyState() == webrtc.DataChannelStateOpen {
+			b.SendMessage(dc, message)
+		}
+	}
 }
 
 func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
