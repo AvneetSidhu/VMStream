@@ -67,29 +67,31 @@ func handleOffer(clientID string, offerSDP string) {
 	videoSender, _ := pc.AddTrack(videoTrack)
 
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
-		logger.Info("Data channel opened", zap.String("label", dc.Label()), zap.String("clientID", clientID))
-		dc.SendText("Welcome to the SFU!")
-		if dc.Label() == "input" {
-			clients := broadcaster.GetAllClientIDs()
+		dc.OnOpen(func () {
+			logger.Info("Data channel opened", zap.String("label", dc.Label()), zap.String("clientID", clientID))
+			dc.SendText("Welcome to the SFU!")
+			if dc.Label() == "input" {
+				clients := broadcaster.GetAllClientIDs()
 
-			payload, err := json.Marshal(ClientListPayload{
-				Clients: clients,
-			})
+				payload, err := json.Marshal(ClientListPayload{
+					Clients: clients,
+				})
 
-			if err != nil {
-				logger.Error("Error marshalling client list payload", zap.Error(err))
+				if err != nil {
+					logger.Error("Error marshalling client list payload", zap.Error(err))
+				}
+
+				broadcaster.SendMessage(dc,
+					OutgoingMessage {
+						Type: "viewer-list",
+						Payload: json.RawMessage(payload),
+					},
+				)
+
+				dataChannel = dc
+				go handleInput(dc)
 			}
-
-			broadcaster.SendMessage(dc,
-				OutgoingMessage {
-					Type: "viewer-list",
-					Payload: json.RawMessage(payload),
-				},
-			)
-
-			dataChannel = dc
-			go handleInput(dc)
-		}
+		})
 	})
 
 	readRTCPFeedback(audioSender, "audio")
