@@ -69,7 +69,6 @@ func handleOffer(clientID string, offerSDP string) {
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
 		dc.OnOpen(func () {
 			logger.Info("Data channel opened", zap.String("label", dc.Label()), zap.String("clientID", clientID))
-			dc.SendText("Welcome to the SFU!")
 			if dc.Label() == "input" {
 
 				broadcaster.AddClient(
