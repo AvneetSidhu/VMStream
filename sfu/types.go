@@ -76,14 +76,6 @@ type ClientListPayload struct {
 	Clients []string `json:"clients"`
 }
 
-type JoinPayload struct {
-	ClientID string `json:"client_id"`
-}
-
-type LeavePayload struct {
-	ClientID string `json:"client_id"`
-}
-
 func (c *Client) sendRTCPSenderReport(ssrc uint32, rtpTimeStamp uint32, packetCount uint32, byteCount uint32) {
 	now := time.Now()
 	ntpTimeStamp := toNTPTime(now)
@@ -257,6 +249,23 @@ func (b *Broadcaster) SendMessage(dc *webrtc.DataChannel, message OutgoingMessag
 		return
 	}
 	dc.SendText(string(messageBytes))
+}
+
+func (b *Broadcaster) SendClientList(dc *webrtc.DataChannel) {
+	clients := b.GetAllClientIDs()
+	payload, err := json.Marshal(ClientListPayload{
+			Clients: clients,
+		})
+
+	if err != nil {
+		logger.Error("Error marshalling client list payload", zap.Error(err))
+	}
+
+	message :=	OutgoingMessage {
+		Type: "viewer-list",
+		Payload: json.RawMessage(payload),
+		}
+	b.SendMessage(dc, message)
 }
 
 func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {

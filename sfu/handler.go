@@ -71,23 +71,7 @@ func handleOffer(clientID string, offerSDP string) {
 			logger.Info("Data channel opened", zap.String("label", dc.Label()), zap.String("clientID", clientID))
 			dc.SendText("Welcome to the SFU!")
 			if dc.Label() == "input" {
-				clients := broadcaster.GetAllClientIDs()
-
-				payload, err := json.Marshal(ClientListPayload{
-					Clients: clients,
-				})
-
-				if err != nil {
-					logger.Error("Error marshalling client list payload", zap.Error(err))
-				}
-
-				broadcaster.SendMessage(dc,
-					OutgoingMessage {
-						Type: "viewer-list",
-						Payload: json.RawMessage(payload),
-					},
-				)
-
+				broadcaster.SendClientList(dc)
 				dataChannel = dc
 				go handleInput(dc)
 			}
