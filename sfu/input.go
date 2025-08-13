@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/go-vgo/robotgo"
-	"github.com/pion/webrtc/v3"
 	"go.uber.org/zap"
 )
 
@@ -48,28 +47,3 @@ func handleKeyboardInput(key string) {
 	logger.Debug("Handled keyboard input", zap.String("key", key))
 }
 
-func handleInput(dc *webrtc.DataChannel) {
-	logger.Info("Handling input data channel", zap.String("label", dc.Label()))
-	var message InputMessage
-	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
-		logger.Debug("Received message on input channel", zap.String("label", dc.Label()), zap.ByteString("data", msg.Data))
-
-		message, _ = parseInputMessage(msg.Data)
-		switch message.Type {
-		case "key":
-			var payload KeyboardInputPayload
-			parsePayload(message.Payload, &payload)
-			handleKeyboardInput(payload.Key)
-		case "mouse":
-			var payload MouseInputPayload
-			parsePayload(message.Payload, &payload)
-			handleMouseInput(payload.X, payload.Y, payload.Action)
-		default:
-			logger.Warn("Unknown input message type", zap.String("type", message.Type))
-		}
-	})
-
-	dc.OnClose(func() {
-		logger.Debug("Input data channel closed", zap.String("label", dc.Label()))
-	})
-}

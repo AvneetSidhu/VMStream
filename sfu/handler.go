@@ -83,7 +83,7 @@ func handleOffer(clientID string, offerSDP string) {
 				})
 
 				broadcaster.SendClientList()
-				go handleInput(dc)
+				broadcaster.handleInput(dc, clientID)
 			}
 		})
 	})

@@ -49,11 +49,16 @@ type Client struct {
 type Broadcaster struct {
 	mu sync.RWMutex
 	clients map[string]*Client
+	currentController string
 }
 
 type InputMessage struct {
 	Type string `json:"type"`
 	Payload json.RawMessage `json:"payload"`
+}
+
+type ControllerUpdatePayload struct {
+	ClientID string `json:"clientID"`
 }
 
 type KeyboardInputPayload struct {
@@ -180,6 +185,20 @@ func (b *Broadcaster) Start() {
 
 	go b.ingestRTP(5004, "video")
 	go b.ingestRTP(5006, "audio")
+}
+
+func (b *Broadcaster) SetController(clientID string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.currentController = clientID
+	logger.Info("Set current controller", zap.String("clientID", clientID))
+}
+
+func (b *Broadcaster) updateController(clientID string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.currentController = clientID
+	logger.Info("Updated current controller", zap.String("clientID", clientID))
 }
 
 func (b *Broadcaster) ingestRTP(port int, mediaType string) {
@@ -334,6 +353,49 @@ func (b *Broadcaster) forwardRTP(packet []byte, mediaType string) {
 			}
 		}
 	}
+}
+
+func (b *Broadcaster) GetCurrentController() string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.currentController
+}
+
+
+func (b *Broadcaster) handleInput(dc *webrtc.DataChannel, clientID string) {
+	logger.Info("Handling input data channel", zap.String("label", dc.Label()))
+	var message InputMessage
+	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+		logger.Debug("Received message on input channel", zap.String("label", dc.Label()), zap.ByteString("data", msg.Data))
+
+		message, _ = parseInputMessage(msg.Data)
+		switch message.Type {
+		case "control":
+			var payload ControllerUpdatePayload
+			parsePayload(message.Payload, &payload)
+			b.updateController(payload.ClientID)
+		case "key":
+			if b.GetCurrentController() != clientID {
+				return
+			}
+			var payload KeyboardInputPayload
+			parsePayload(message.Payload, &payload)
+			handleKeyboardInput(payload.Key)
+		case "mouse":
+			if b.GetCurrentController() != clientID {
+				return
+			}
+			var payload MouseInputPayload
+			parsePayload(message.Payload, &payload)
+			handleMouseInput(payload.X, payload.Y, payload.Action)
+		default:
+			logger.Warn("Unknown input message type", zap.String("type", message.Type))
+		}
+	})
+
+	dc.OnClose(func() {
+		logger.Debug("Input data channel closed", zap.String("label", dc.Label()))
+	})
 }
 
 
