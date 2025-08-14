@@ -13,6 +13,9 @@ import (
 func webRTCConnectionCleanup(clientID string) {
 	if client, ok := broadcaster.GetClient(clientID); ok {
 		_ = client.PeerConn.Close()
+		if broadcaster.GetCurrentController() == clientID {
+			broadcaster.SetController("")
+		}
 		broadcaster.RemoveClient(clientID)
 		broadcaster.SendClientList()
 		logger.Info("Ended webRTC connection for: " + clientID)

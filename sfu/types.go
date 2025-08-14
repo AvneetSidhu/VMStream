@@ -361,7 +361,6 @@ func (b *Broadcaster) GetCurrentController() string {
 	return b.currentController
 }
 
-
 func (b *Broadcaster) handleInput(dc *webrtc.DataChannel, clientID string) {
 	logger.Info("Handling input data channel", zap.String("label", dc.Label()))
 	var message InputMessage
