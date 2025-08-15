@@ -105,6 +105,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logger.Info("User logged in successfully", zap.String("username", username))
+
 	json.NewEncoder(w).Encode(Response{Message: "Login successful", Token: token})
 }
 
