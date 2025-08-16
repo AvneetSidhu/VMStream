@@ -1,3 +1,4 @@
+
 # VMStream
 
 VMStream is a self-hosted, real-time VM streaming platform with authentication and multi-peer capabilities. It was written as an alternative to **HyperBeam**, a platform that offers embedded virtual browsers over the web. Unlike HyperBeam, VMStream gives me a persistent remote desktop that works like a personal computer. Instead of being locked to a new browser session every time, I can use any application that will run on the OS installed on my VM, keep files and history and pick up where I left off. Since the vm runs on my infrastructure, I own the data, preserve my state, and avoid the privacy concerns that come with third-party services.
@@ -9,7 +10,7 @@ VMStream is a self-hosted, real-time VM streaming platform with authentication a
 
 Clone the repo and run: `go build` in the root of the project to compile. The resulting executable is the server that will run inside the virtual machine that will be streamed. 
 
-You will also need a way to provide audio and video packets to the SFU to be forwarded. This can be done easily using GStreamer which will capture both audio and video and forward them as RTP. Initially, I tried to use FFMPEG for this job but it does not support multiplexing audio and video from the same command for rtp, and separating audio / video commands would result in out of sync clocks and require a/v sync on the server. Forward Audio to `port: 5004` and video to `port: 5006`. 
+You will also need a way to provide audio and video packets to the SFU to be forwarded. This can be done easily using GStreamer which will capture both audio and video and forward them as RTP. Forward Audio to `port: 5004` and video to `port: 5006`. 
 
 Ex: `gst-launch-1.0 -v rtpbin name=rtpbin \
 ximagesrc use-damage=0 ! video/x-raw,framerate=30/1 ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! rtpbin.send_rtp_sink_0 \
@@ -18,6 +19,113 @@ pulsesrc ! audioresample ! audioconvert ! opusenc ! rtpopuspay ! rtpbin.send_rtp
 rtpbin.send_rtp_src_1 ! udpsink host=127.0.0.1 port=5006`
 
 This command is capturing audio from PulseAudio and captures video from the display output of the VM.
+
+You will also need the following environment variables:
+
+| Variable    | Description                                      | Example / Notes            |
+|------------|--------------------------------------------------|----------------------------|
+| LOG_LEVEL  | Sets the logging verbosity (e.g., debug, info) | debug                     |
+| JWT_SECRET | Secret key for signing JSON Web Tokens          | your-secret-key-here      |
+| WIDTH      | Width of the application viewport              | 1280                      |
+| HEIGHT     | Height of the application viewport             | 720                       |
+
+
+The http request bodies expected are of the form: 
+
+**Login**
+
+```json
+{
+    "username": "username",
+    "password": "password",
+    "auth": ""
+}
+```
+
+**Register**
+
+```json
+{
+    "username": "username",
+    "password": "password",
+    "auth": ""
+}
+```
+
+**Connect**
+
+*uses query string to pass auth
+
+`/connect?client_id=${username}&auth=${auth}`
+
+**WebSocket Signaling Messages**
+
+```json
+{
+  "type": "offer",
+  "clientId": "username",
+  "payload": {
+    "sdp": "your-sdp-string-here"
+  }
+}
+```
+
+```json
+{
+  "type": "ice-candidate",
+  "clientId": "username",
+  "payload": {
+    "candidate": "candidate-string",
+    "sdpMid": "0",
+    "sdpMLineIndex": 0
+  }
+}
+```
+
+```json
+{
+  "type": "termination",
+  "clientId": "username",
+  "payload": {}
+}
+```
+**Input Messages**
+
+```json
+{
+  "type": "mouse",
+  "payload": {
+    "x": normalizedX,
+    "y": normalizedY,
+    "action": "move",
+    "deltaY": ""
+  }
+}
+```
+
+```json
+{
+  "type": "mouse",
+  "payload": {
+    "x": normalizedX,
+    "y": normalizedY,
+    "action": button,
+    "deltaY": ""
+  }
+}
+```
+
+```json
+{
+  "type": "key",
+  "payload": {
+    "key": "event.key",
+    "action": "keydown"
+  }
+}
+```
+
+
 
 ## How it's Made:
 
