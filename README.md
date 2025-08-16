@@ -95,7 +95,7 @@ The http request bodies expected are of the form:
 {
   "type": "mouse",
   "payload": {
-    "x": "normalizedX,
+    "x": "normalizedX",
     "y": "normalizedY",
     "action": "move",
     "deltaY": ""
