@@ -95,8 +95,8 @@ The http request bodies expected are of the form:
 {
   "type": "mouse",
   "payload": {
-    "x": normalizedX,
-    "y": normalizedY,
+    "x": "normalizedX,
+    "y": "normalizedY",
     "action": "move",
     "deltaY": ""
   }
@@ -107,9 +107,9 @@ The http request bodies expected are of the form:
 {
   "type": "mouse",
   "payload": {
-    "x": normalizedX,
-    "y": normalizedY,
-    "action": button,
+    "x": "normalizedX",
+    "y": "normalizedY",
+    "action": "button",
     "deltaY": ""
   }
 }
