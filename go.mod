@@ -18,6 +18,7 @@ require (
 	github.com/jezek/xgb v1.1.1 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
+	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/otiai10/gosseract v2.2.1+incompatible // indirect
 	github.com/pion/datachannel v1.5.8 // indirect
 	github.com/pion/dtls/v2 v2.2.12 // indirect

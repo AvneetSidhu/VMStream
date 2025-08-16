@@ -17,7 +17,7 @@ import (
 func startSignalServer(jwtSecret string, logger *zap.Logger) {
 	signal.SetJWTSecret(jwtSecret)
 	signal.SetLogger(logger)
-
+	signal.InitDB()
 	go signal.StartSFUMessageLoop()
 
 	sfu.FromSignal = signal.ToSFU

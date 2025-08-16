@@ -1,73 +1,93 @@
 package signal
 
 import (
-	"encoding/csv"
-	"fmt"
-	"os"
+	"database/sql"
 
+	_ "github.com/mattn/go-sqlite3" // Import SQLite driver
 	"go.uber.org/zap"
 )
 
-func storeUser(username, hashedPassword string) error {
-	file, err := os.OpenFile("db.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	defer file.Close()
+var db *sql.DB
+
+func InitDB() {
+	var err error
+	db, err = sql.Open("sqlite3", "./test.db")
 
 	if err != nil {
-		logger.Error("Error opening file:", zap.Error(err))
+		logger.Fatal("Failed to open database:", zap.Error(err))
 	}
 
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
+	tx, err := db.Begin()
 
-	writer.Write([]string{username, hashedPassword})
+	if err != nil {
+		logger.Fatal("Failed to begin transaction:", zap.Error(err))
+	}
 
-	return err
+	createUsersTableQuery := `
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT NOT NULL UNIQUE,
+		hashed_password TEXT NOT NULL
+	);`
+
+	createLoginHistoryTableQuery := `
+	CREATE TABLE IF NOT EXISTS login_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+	);`
+
+	if _, err = tx.Exec(createUsersTableQuery); err != nil {
+		tx.Rollback()
+		logger.Fatal("Failed to create users table:", zap.Error(err))
+	}
+
+	if _, err = tx.Exec(createLoginHistoryTableQuery); err != nil {
+		tx.Rollback()
+		logger.Fatal("Failed to create login history table:", zap.Error(err))
+	}
+
+	if err = tx.Commit(); err != nil {
+		logger.Fatal("Failed to commit transaction:", zap.Error(err))
+	}
+}
+
+func storeUser(username, hashedPassword string) error {
+	_, err := db.Exec(`INSERT INTO users (username, hashed_password) VALUES (?, ?)`, username, hashedPassword)
+
+	if err != nil {
+		if err.Error() == "UNIQUE constraint failed: users.username" {
+			return sql.ErrNoRows // User already exists
+		}
+		return err
+	}
+
+	return nil
 }
 
 func userExists(username string) bool {
-	file, err := os.Open("db.csv")
-	if err != nil {
-		logger.Error("Error opening file:", zap.Error(err))
-		return false
-	}
-	defer file.Close()
+	var id int
 
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
-		logger.Error("Error reading file:", zap.Error(err))
-		return false
-	}
+	err := db.QueryRow(`SELECT id FROM users WHERE username = ?`, username).Scan(&id)
 
-	for _, record := range records {
-		if record[0] == username {
-			return true
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false 
 		}
 	}
 
-	return false
+	return true
 }
 
 func getUser(username string) (string, error) {
-	file, err := os.Open("db.csv")
-	if err != nil {
-		logger.Error("Error opening file:", zap.Error(err))
-		return "", err
-	}
-	defer file.Close()
+	var hashedPassword string
 
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
+	err := db.QueryRow(`SELECT hashed_password FROM users WHERE username = ?`, username).Scan(&hashedPassword)
+
 	if err != nil {
-		logger.Error("Error reading file:", zap.Error(err))
 		return "", err
 	}
 
-	for _, record := range records {
-		if record[0] == username {
-			return record[1], nil
-		}
-	}
-
-	return "", fmt.Errorf("user not found")
+	return hashedPassword, nil
 }
