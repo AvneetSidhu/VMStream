@@ -217,7 +217,6 @@ func (b *Broadcaster) ingestRTP(port int, mediaType string) {
 			continue
 		}
 		packet := make([]byte, n)
-		copy(packet, buf[:n])
 		b.forwardRTP(packet, mediaType)
 	}
 }
