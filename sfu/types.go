@@ -216,8 +216,7 @@ func (b *Broadcaster) ingestRTP(port int, mediaType string) {
 			logger.Error("Read error", zap.Error(err))
 			continue
 		}
-		packet := make([]byte, n)
-		b.forwardRTP(packet, mediaType)
+		b.forwardRTP(buf[:n], mediaType)
 	}
 }
 
