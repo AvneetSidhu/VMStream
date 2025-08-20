@@ -13,6 +13,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+func startClient() {
+	fs := http.FileServer(http.Dir("./static"))
+	http.Handle("/", fs)
+}
 
 func startSignalServer(jwtSecret string, logger *zap.Logger) {
 	signal.SetJWTSecret(jwtSecret)
@@ -23,9 +27,9 @@ func startSignalServer(jwtSecret string, logger *zap.Logger) {
 	sfu.FromSignal = signal.ToSFU
 	sfu.ToSignal = signal.FromSFU
 
-	http.HandleFunc("/login", signal.LoginHandler)
-	http.HandleFunc("/connect", signal.ClientConnectHandler)
-	http.HandleFunc("/register", signal.RegisterHandler)
+	http.HandleFunc("/api/login", signal.LoginHandler)
+	http.HandleFunc("/api/connect", signal.ClientConnectHandler)
+	http.HandleFunc("/api/register", signal.RegisterHandler)
 }
 
 func startSFU(logger *zap.Logger) {
@@ -81,6 +85,8 @@ func main() {
 
 	startSignalServer(jwtSecret, logger)
 	startSFU(logger)
+
+	startClient()
 	
 	logger.Info("SFU Server is running on port 8080")
 	
