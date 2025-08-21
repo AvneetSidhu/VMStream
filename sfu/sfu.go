@@ -3,13 +3,19 @@ package sfu
 import (
 	"sync"
 	"webrtc-gateway/signal"
+
+	"github.com/pion/webrtc/v3"
 )
 
 var peers = make(map[string]Client)
 var mu = sync.RWMutex{}
 var broadcaster Broadcaster
 
-func Start(w int, h int) {
+func Start(w int, h int, tailnet string) {
+
+	se = webrtc.SettingEngine{}
+	se.SetNAT1To1IPs([]string{tailnet}, webrtc.ICECandidateTypeHost)
+	api = webrtc.NewAPI(webrtc.WithSettingEngine(se))
 
 	width = w
 	height = h

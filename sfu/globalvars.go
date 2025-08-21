@@ -3,6 +3,7 @@ package sfu
 import (
 	"webrtc-gateway/signal"
 
+	"github.com/pion/webrtc/v3"
 	"go.uber.org/zap"
 )
 
@@ -13,6 +14,12 @@ var height int
 var width int
 
 var logger *zap.Logger
+
+var tailnet string
+
+var se webrtc.SettingEngine
+
+var api *webrtc.API
 
 func SetLogger(l *zap.Logger) {
 	logger = l

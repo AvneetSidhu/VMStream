@@ -41,7 +41,7 @@ func handleOffer(clientID string, offerSDP string) {
 		"audio", "pion",
 	)
 
-	pc, err := webrtc.NewPeerConnection(config)
+	pc, err := api.NewPeerConnection(config)
 	if err != nil {
 		logger.Error("Error Creating New Peer Connection", zap.String("clientID", clientID), zap.Error(err))
 		return

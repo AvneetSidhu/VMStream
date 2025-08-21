@@ -32,13 +32,13 @@ func startSignalServer(jwtSecret string, logger *zap.Logger) {
 	http.HandleFunc("/api/register", signal.RegisterHandler)
 }
 
-func startSFU(logger *zap.Logger) {
+func startSFU(logger *zap.Logger, tailnet string) {
 	sfu.SetLogger(logger)
 	widthStr := os.Getenv("WIDTH")
 	heightStr := os.Getenv("HEIGHT")
 	width, _ := strconv.Atoi(widthStr)
 	height, _ := strconv.Atoi(heightStr)
-	go sfu.Start(width, height)
+	go sfu.Start(width, height, tailnet)
 }
 
 func InitLogger() *zap.Logger {
@@ -83,14 +83,20 @@ func main() {
 		return
 	}
 
+	tailnet := os.Getenv("TAILNET")
+	if tailnet == "" {
+		logger.Fatal("TAILNET is not set in .env file")
+		return
+	}
+
 	startSignalServer(jwtSecret, logger)
-	startSFU(logger)
+	startSFU(logger, tailnet)
 
 	startClient()
 	
 	logger.Info("SFU Server is running on port 8080")
 	
-	err := http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(tailnet + ":8080", nil)
 	if err != nil {
 		logger.Fatal("Failed to start server", zap.Error(err))
 	}
