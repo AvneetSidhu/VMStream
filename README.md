@@ -8,7 +8,7 @@ VMStream is a self-hosted, real-time VM streaming platform with authentication a
 
 ## Usage:
 
-Clone the repo and run: `go build` in the root of the project to compile. The resulting executable is the server that will run inside the virtual machine that will be streamed. 
+Clone the 'host-frontend' branch of the repo into the vm you want to stream and run: `go build` in the root of the project to compile. The resulting executable is the server that will run inside the virtual machine that will be streamed. This branch contains a frontend that is hosted by the sfu server itself. Usage will also require the vm to have its own ip address / exposure to the private network. My current set up uses a tailnet and ACLs to expose the VM to users I want to grant access to.
 
 You will also need a way to provide audio and video packets to the SFU to be forwarded. This can be done easily using GStreamer which will capture both audio and video and forward them as RTP. Forward Audio to `port: 5004` and video to `port: 5006`. 
 
@@ -28,104 +28,6 @@ You will also need the following environment variables:
 | JWT_SECRET | Secret key for signing JSON Web Tokens          | your-secret-key-here      |
 | WIDTH      | Width of the application viewport              | 1280                      |
 | HEIGHT     | Height of the application viewport             | 720                       |
-
-
-The http request bodies expected are of the form: 
-
-**Login**
-
-```json
-{
-    "username": "username",
-    "password": "password",
-    "auth": ""
-}
-```
-
-**Register**
-
-```json
-{
-    "username": "username",
-    "password": "password",
-    "auth": ""
-}
-```
-
-**Connect**
-
-*uses query string to pass auth
-
-`/connect?client_id=${username}&auth=${auth}`
-
-**WebSocket Signaling Messages**
-
-```json
-{
-  "type": "offer",
-  "clientId": "username",
-  "payload": {
-    "sdp": "your-sdp-string-here"
-  }
-}
-```
-
-```json
-{
-  "type": "ice-candidate",
-  "clientId": "username",
-  "payload": {
-    "candidate": "candidate-string",
-    "sdpMid": "0",
-    "sdpMLineIndex": 0
-  }
-}
-```
-
-```json
-{
-  "type": "termination",
-  "clientId": "username",
-  "payload": {}
-}
-```
-**Input Messages**
-
-```json
-{
-  "type": "mouse",
-  "payload": {
-    "x": "normalizedX",
-    "y": "normalizedY",
-    "action": "move",
-    "deltaY": ""
-  }
-}
-```
-
-```json
-{
-  "type": "mouse",
-  "payload": {
-    "x": "normalizedX",
-    "y": "normalizedY",
-    "action": "button",
-    "deltaY": ""
-  }
-}
-```
-
-```json
-{
-  "type": "key",
-  "payload": {
-    "key": "event.key",
-    "action": "keydown"
-  }
-}
-```
-
-
 
 ## How it's Made:
 
@@ -179,5 +81,4 @@ User inputs (keyboard, mouse, etc.) are sent as discrete events over a WebRTC da
 - [ ]  Fix SFU read loop bottleneck, introduce per-client reading from SFU
 - [ ]  Decouple input injection from SFU, create a service on VM and move SFU outside
 - [ ]  Introduce some sort of telemetry / performance measurement
-- [ ]  Refactor json input commands to binary
-- [ ]  CI/CD for VMStream and future Input-injection service
+- [ ]  CI/CD
