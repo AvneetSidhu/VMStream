@@ -12,10 +12,11 @@ var mu = sync.RWMutex{}
 var broadcaster Broadcaster
 
 func Start(w int, h int, tailnet string) {
-
+	me = &webrtc.MediaEngine{}
+	me.RegisterDefaultCodecs()
 	se = webrtc.SettingEngine{}
 	se.SetNAT1To1IPs([]string{tailnet}, webrtc.ICECandidateTypeHost)
-	api = webrtc.NewAPI(webrtc.WithSettingEngine(se))
+	api = webrtc.NewAPI(webrtc.WithSettingEngine(se), webrtc.WithMediaEngine(me))
 
 	width = w
 	height = h

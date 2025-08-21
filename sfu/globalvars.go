@@ -19,6 +19,8 @@ var tailnet string
 
 var se webrtc.SettingEngine
 
+var me *webrtc.MediaEngine
+
 var api *webrtc.API
 
 func SetLogger(l *zap.Logger) {
