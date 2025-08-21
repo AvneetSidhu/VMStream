@@ -12,9 +12,9 @@ Clone the 'host-frontend' branch of the repo into the vm you want to stream and 
 You will also need a way to provide audio and video packets to the SFU to be forwarded. This can be done easily using GStreamer which will capture both audio and video and forward them as RTP. Forward Audio to `port: 5004` and video to `port: 5006`. 
 
 Ex: `gst-launch-1.0 -v rtpbin name=rtpbin \
-ximagesrc use-damage=0 ! video/x-raw,framerate=30/1 ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay ! rtpbin.send_rtp_sink_0 \
+ximagesrc use-damage=0 ! video/x-raw,framerate=30/1 ! videoconvert ! videoscale ! video/x-raw,width=1920,height=1080 ! queue ! vp8enc deadline=1 cpu-used=1 target-bitrate=5000000 ! rtpvp8pay ! rtpbin.send_rtp_sink_0 \
 rtpbin.send_rtp_src_0 ! udpsink host=127.0.0.1 port=5004 \
-pulsesrc ! audioresample ! audioconvert ! opusenc ! rtpopuspay ! rtpbin.send_rtp_sink_1 \
+pulsesrc ! audioresample ! audioconvert ! opusenc bitrate=128000 ! rtpopuspay ! rtpbin.send_rtp_sink_1 \
 rtpbin.send_rtp_src_1 ! udpsink host=127.0.0.1 port=5006`
 
 This command is capturing audio from PulseAudio and captures video from the display output of the VM.
@@ -28,6 +28,8 @@ You will also need the following environment variables:
 | WIDTH      | Width of the application viewport              | 1280                      |
 | HEIGHT     | Height of the application viewport             | 720                       |
 | TAILNET    | Tailnet IP of the machine to be streamed       | 100.xx.xxx.xxx
+
+Lastly, to avoid having to port-forward or pay for hosting, you can run this application within a virtual machine that you can connect to using tailscale. Simply add the vm or device you plan to stream to a tailnet and connect via the ip address or magicDNS.
 
 ## How it's Made:
 
