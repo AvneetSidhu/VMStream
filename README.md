@@ -92,4 +92,5 @@ The frontend is served by by VMStream from within the VM it is running on. This 
 - [ ]  Implement scrolling, click and drag, and other input types
 - [ ]  Introduce performance measurment / telemetry
 - [ ]  CI/CD
+- [ ] Eventually decouple injection, SFU and VM management
 
