@@ -194,5 +194,5 @@ func RefreshHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Info("Refresh token validated, new token issued", zap.String("username", extractedUsername))
 
-	json.NewEncoder(w).Encode(Response{Message: "Token refreshed successfully", Token: token})
+	json.NewEncoder(w).Encode(Response{Message: "Token refreshed successfully", Token: token, Data: extractedUsername})
 }
