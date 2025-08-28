@@ -58,7 +58,7 @@ func issueRefreshTokenCookie(clientID string) (http.Cookie, error) {
 	cookie := http.Cookie{
 		Name:     "refresh_token",
 		Value:   refreshTokenString,
-		Path:    "/api/refresh",
+		Path:    "/",
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
