@@ -87,7 +87,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   useEffect(() => {
-    refreshToken();
+    const cookieExists = document.cookie
+      .split("; ")
+      .some((cookie) => cookie.startsWith("refreshToken="));
+
+    if (cookieExists) {
+      refreshToken();
+    }
   }, []);
 
   return (
