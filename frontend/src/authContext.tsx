@@ -64,36 +64,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         method: "POST",
         credentials: "include",
       });
+
+      if (res.status === 401) {
+        logout();
+        return;
+      }
+
       if (!res.ok) throw new Error("Refresh failed");
       const data = await res.json();
-
-      backoffRef.current = 0;
 
       setToken(data.token);
       setUsername(data.data);
       scheduleRefresh(data.token);
     } catch (err) {
       console.error("Token refresh failed", err);
-
-      const delay = Math.min(2 ** backoffRef.current * 1000, 30_000);
-      backoffRef.current += 1;
-
-      if (delay < 30_000) {
-        refreshTimerRef.current = setTimeout(() => refreshToken(), delay);
-      } else {
-        logout();
-      }
     }
   };
 
   useEffect(() => {
-    const cookieExists = document.cookie
-      .split("; ")
-      .some((cookie) => cookie.startsWith("refreshToken="));
-
-    if (cookieExists) {
-      refreshToken();
-    }
+    refreshToken();
   }, []);
 
   return (
