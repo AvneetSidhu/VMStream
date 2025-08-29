@@ -30,6 +30,7 @@ func startSignalServer(jwtSecret string, logger *zap.Logger) {
 	http.HandleFunc("/api/login", signal.LoginHandler)
 	http.HandleFunc("/api/connect", signal.ClientConnectHandler)
 	http.HandleFunc("/api/register", signal.RegisterHandler)
+	http.HandleFunc("/api/refresh", signal.RefreshHandler)
 }
 
 func startSFU(logger *zap.Logger, tailnet string) {

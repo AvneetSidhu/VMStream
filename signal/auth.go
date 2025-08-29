@@ -2,6 +2,7 @@ package signal
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -34,11 +35,37 @@ func checkPasswordHash(password, hash string) bool {
 func generateJWTToken(clientID string) (string, error) {
 	claims := jwt.MapClaims{
 		"client_id": clientID,
-		"exp":      jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
+		"exp":      jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	return token.SignedString([]byte(jwtSecret))
+}
+
+func issueRefreshTokenCookie(clientID string) (http.Cookie, error) {
+	refreshTokenClaims := jwt.MapClaims{
+		"client_id": clientID,
+		"exp":       jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
+	}
+
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshTokenClaims)
+	refreshTokenString, err := refreshToken.SignedString([]byte(jwtSecret))
+
+	if err != nil {
+		return http.Cookie{}, err
+	}
+
+	cookie := http.Cookie{
+		Name:     "refresh_token",
+		Value:   refreshTokenString,
+		Path:    "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(24 * time.Hour),
+	}
+
+	return cookie, nil
 }
 
 func validateJWTToken(tokenString string) (string, error) {

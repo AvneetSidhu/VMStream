@@ -107,6 +107,15 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("User logged in successfully", zap.String("username", username))
 
+	cookie, err := issueRefreshTokenCookie(username)
+
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("internal server error"))
+		logger.Error("Error issuing refresh token cookie", zap.String("username", username), zap.Error(err))
+		return
+	}
+
+	http.SetCookie(w, &cookie)
 	json.NewEncoder(w).Encode(Response{Message: "Login successful", Token: token})
 }
 
@@ -151,4 +160,39 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(Response{Message: "Registration successful"})
+}
+
+
+func RefreshHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
+		logger.Warn("Method not allowed for token refresh", zap.String("method", r.Method))
+		return
+	}
+
+	cookie, err := r.Cookie("refresh_token")
+	if err != nil {
+		writeJSONError(w, http.StatusUnauthorized, fmt.Errorf("unauthorized"))
+		logger.Warn("Refresh token cookie not found", zap.Error(err))
+		return
+	}
+
+	refreshToken := cookie.Value
+
+	extractedUsername, err := validateJWTToken(refreshToken)
+	if err != nil {
+		writeJSONError(w, http.StatusUnauthorized, fmt.Errorf("invalid refresh token"))
+		logger.Warn("Error validating refresh token", zap.Error(err))
+		return
+	}
+
+	token, err := generateJWTToken(extractedUsername)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("internal server error"))
+		logger.Error("Error generating new JWT token", zap.String("username", extractedUsername), zap.Error(err))
+		return
+	}
+	logger.Info("Refresh token validated, new token issued", zap.String("username", extractedUsername))
+
+	json.NewEncoder(w).Encode(Response{Message: "Token refreshed successfully", Token: token, Data: extractedUsername})
 }

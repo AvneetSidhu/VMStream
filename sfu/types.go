@@ -151,7 +151,7 @@ func (b *Broadcaster) AddClient(client *Client) {
 
 			_ = client.VideoTrack.WriteRTP(pkt)
 			atomic.StoreUint32(&client.LatestVideoPacketTime, pkt.Timestamp)
-
+			logger.Debug("Wrote video RTP packet", zap.String("clientID", client.ClientID), zap.Uint32("timestamp", pkt.Timestamp), zap.Int("size", len(pkt.Payload)))
 		case <-client.done:
 			return
 		}
