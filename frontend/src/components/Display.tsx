@@ -1,15 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
 import ViewerList from "./ViewerList";
 import { useAuth } from "../authContext";
+import { useSignaling } from "../hooks/useSignaling";
 
 const Display: React.FC = () => {
   const { username, token: auth } = useAuth();
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const socketRef = useRef<WebSocket | null>(null);
-  const dataChannelRef = useRef<RTCDataChannel | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  const [viewers, setViewers] = useState<string[]>([]);
+  const { disconnect, viewers, connect, dataChannelRef } = useSignaling(
+    username,
+    auth
+  );
+
   const [inputLocked, setInputLocked] = useState(false);
   const inputLockedRef = useRef(false);
   const listenersAttachedRef = useRef(false);
@@ -17,126 +19,6 @@ const Display: React.FC = () => {
   useEffect(() => {
     inputLockedRef.current = inputLocked;
   }, [inputLocked]);
-
-  async function startWebSocket() {
-    if (pcRef.current) pcRef.current.close();
-    if (socketRef.current) socketRef.current.close();
-
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun1.l.google.com:19302" }],
-    });
-    pcRef.current = pc;
-
-    const dc = pc.createDataChannel("input", { ordered: true });
-    dataChannelRef.current = dc;
-
-    dc.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg?.payload?.clients) setViewers(msg.payload.clients as string[]);
-      } catch (e) {
-        console.error("Bad DC message:", e);
-      }
-    };
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate && socketRef.current?.readyState === WebSocket.OPEN) {
-        socketRef.current.send(
-          JSON.stringify({
-            type: "ice-candidate",
-            clientId: username,
-            payload: {
-              candidate: event.candidate.candidate,
-              sdpMid: event.candidate.sdpMid,
-              sdpMLineIndex: event.candidate.sdpMLineIndex,
-            },
-          })
-        );
-      }
-    };
-
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "connected") {
-        socketRef.current?.send(
-          JSON.stringify({
-            type: "termination",
-            clientId: username,
-            payload: {},
-          })
-        );
-        setTimeout(() => socketRef.current?.close(), 200);
-      }
-    };
-
-    pc.addTransceiver("audio", { direction: "sendrecv" });
-    pc.addTransceiver("video", { direction: "sendrecv" });
-
-    pc.ontrack = (e) => {
-      if (videoRef.current && !videoRef.current.srcObject) {
-        videoRef.current.srcObject = e.streams[0];
-      }
-    };
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    await new Promise<void>((resolve) => {
-      if (pc.iceGatheringState === "complete") return resolve();
-      const check = () => {
-        if (pc.iceGatheringState === "complete") {
-          pc.removeEventListener("icegatheringstatechange", check);
-          resolve();
-        }
-      };
-      pc.addEventListener("icegatheringstatechange", check);
-    });
-
-    const socket = new WebSocket(
-      `api/connect?client_id=${username}&auth=${auth}`
-    );
-    socketRef.current = socket;
-
-    socket.addEventListener("open", () => {
-      socket.send(
-        JSON.stringify({
-          type: "offer",
-          clientId: username,
-          payload: { sdp: pc.localDescription?.sdp },
-        })
-      );
-    });
-
-    socket.addEventListener("message", async (event) => {
-      const msg = JSON.parse(event.data);
-      switch (msg.type) {
-        case "answer":
-          await pc.setRemoteDescription(
-            new RTCSessionDescription({ type: "answer", sdp: msg.payload.sdp })
-          );
-          break;
-        case "ice-candidate":
-          if (
-            msg.payload?.candidate &&
-            msg.payload.sdpMid != null &&
-            msg.payload.sdpMLineIndex != null
-          ) {
-            const cand = new RTCIceCandidate({
-              candidate: msg.payload.candidate,
-              sdpMid: msg.payload.sdpMid,
-              sdpMLineIndex: msg.payload.sdpMLineIndex,
-            });
-            await pc.addIceCandidate(cand).catch(console.error);
-          }
-          break;
-        default:
-          break;
-      }
-    });
-
-    socket.addEventListener("close", () => {
-      console.log("WebSocket closed");
-    });
-  }
 
   function handleMouseMove(event: MouseEvent) {
     if (inputLockedRef.current) return;
@@ -221,9 +103,7 @@ const Display: React.FC = () => {
       listenersAttachedRef.current = true;
     }
 
-    startWebSocket()
-      .then(() => console.log("WebRTC connection started"))
-      .catch((err) => console.error("Failed to start WebRTC connection", err));
+    connect(videoRef);
   }
 
   function handleTakeMouse() {
@@ -262,6 +142,7 @@ const Display: React.FC = () => {
 
   useEffect(() => {
     return () => {
+      disconnect();
       const video = videoRef.current;
       if (video && listenersAttachedRef.current) {
         video.removeEventListener("mousemove", handleMouseMove);
@@ -269,8 +150,6 @@ const Display: React.FC = () => {
         listenersAttachedRef.current = false;
       }
       window.removeEventListener("keydown", handleKeyDown);
-      if (pcRef.current) pcRef.current.close();
-      if (socketRef.current) socketRef.current.close();
       if (video) video.srcObject = null;
     };
   }, []);
