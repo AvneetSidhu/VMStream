@@ -9,13 +9,14 @@ VMStream is a self-hosted, real-time VM streaming platform with authentication a
 
 Clone the 'host-frontend' branch of the repo into the vm you want to stream and run: `go build` in the root of the project to compile. The resulting executable is the server that will run inside the virtual machine that will be streamed. This branch contains a frontend that is hosted by the sfu server itself. Usage will also require the vm to have its own ip address / exposure to the private network. My current set up uses a tailnet and ACLs to expose the VM to users I want to grant access to.
 
-You will also need a way to provide audio and video packets to the SFU to be forwarded. This can be done easily using GStreamer which will capture both audio and video and forward them as RTP. Forward Audio to `port: 5004` and video to `port: 5006`. 
+You will also need a way to provide audio and video packets to the SFU to be forwarded. This can be done easily using GStreamer which will capture both audio and video and forward them as RTP. Forward Audio to `port: 5004` and video to `port: 5006`. Each individual packet size should be lower than 1280 bytes, as it 1280 is Tailscale's MTU size, any bigger and you will experience fragmentation and packet loss.
 
 Ex: `gst-launch-1.0 -v rtpbin name=rtpbin \
-ximagesrc use-damage=0 ! video/x-raw,framerate=30/1 ! videoconvert ! videoscale ! video/x-raw,width=1920,height=1080 ! queue ! vp8enc deadline=1 cpu-used=1 target-bitrate=5000000 ! rtpvp8pay ! rtpbin.send_rtp_sink_0 \
-rtpbin.send_rtp_src_0 ! udpsink host=127.0.0.1 port=5004 \
-pulsesrc ! audioresample ! audioconvert ! opusenc bitrate=128000 ! rtpopuspay ! rtpbin.send_rtp_sink_1 \
-rtpbin.send_rtp_src_1 ! udpsink host=127.0.0.1 port=5006`
+  ximagesrc use-damage=0 ! video/x-raw,framerate=30/1 ! videoconvert ! videoscale ! video/x-raw,width=1280,height=720 ! queue ! \
+    vp8enc deadline=1 cpu-used=1 target-bitrate=2500000 ! rtpvp8pay mtu=1200 ! rtpbin.send_rtp_sink_0 \
+  rtpbin.send_rtp_src_0 ! udpsink host=127.0.0.1 port=5004 \
+  pulsesrc ! audioresample ! audioconvert ! opusenc bitrate=128000 ! rtpopuspay mtu=1200 ! rtpbin.send_rtp_sink_1 \
+  rtpbin.send_rtp_src_1 ! udpsink host=127.0.0.1 port=5006`
 
 This command is capturing audio from PulseAudio and captures video from the display output of the VM.
 
