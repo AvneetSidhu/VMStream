@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (!res.ok) throw new Error("Refresh failed");
       const data = await res.json();
-
+      console.log(data.data + " is the username");
       setToken(data.token);
       setUsername(data.data);
       scheduleRefresh(data.token);

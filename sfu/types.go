@@ -72,6 +72,10 @@ type MouseInputPayload struct {
 	Action string `json:"action"`
 }
 
+type ScrollInputPayload struct {
+	Direction string `json:"direction"`
+}
+
 type OutgoingMessage struct {
 	Type string `json:"type"`
 	Payload json.RawMessage `json:"payload"`
@@ -151,7 +155,6 @@ func (b *Broadcaster) AddClient(client *Client) {
 
 			_ = client.VideoTrack.WriteRTP(pkt)
 			atomic.StoreUint32(&client.LatestVideoPacketTime, pkt.Timestamp)
-			logger.Debug("Wrote video RTP packet", zap.String("clientID", client.ClientID), zap.Uint32("timestamp", pkt.Timestamp), zap.Int("size", len(pkt.Payload)))
 		case <-client.done:
 			return
 		}
@@ -366,25 +369,30 @@ func (b *Broadcaster) handleInput(dc *webrtc.DataChannel, clientID string) {
 		logger.Debug("Received message on input channel", zap.String("label", dc.Label()), zap.ByteString("data", msg.Data))
 
 		message, _ = parseInputMessage(msg.Data)
-		switch message.Type {
-		case "control":
+		if message.Type == "control" {
 			var payload ControllerUpdatePayload
 			parsePayload(message.Payload, &payload)
 			b.updateController(payload.ClientID)
+			return
+		}
+
+		if clientID != b.GetCurrentController() {
+			return
+		}
+
+		switch message.Type {
 		case "key":
-			if b.GetCurrentController() != clientID {
-				return
-			}
 			var payload KeyboardInputPayload
 			parsePayload(message.Payload, &payload)
 			handleKeyboardInput(payload.Key)
 		case "mouse":
-			if b.GetCurrentController() != clientID {
-				return
-			}
 			var payload MouseInputPayload
 			parsePayload(message.Payload, &payload)
 			handleMouseInput(payload.X, payload.Y, payload.Action)
+		case "scroll":
+			var payload ScrollInputPayload
+			parsePayload(message.Payload, &payload)
+			handleScrollInput(payload.Direction)
 		default:
 			logger.Warn("Unknown input message type", zap.String("type", message.Type))
 		}

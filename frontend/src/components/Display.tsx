@@ -82,6 +82,23 @@ const Display: React.FC = () => {
     );
   }
 
+  function handleScroll(event: WheelEvent) {
+    event.preventDefault();
+    if (inputLockedRef.current) return;
+    const dc = dataChannelRef.current;
+    const video = videoRef.current;
+    if (!video || !dc || dc.readyState !== "open") return;
+
+    const dir = event.deltaY > 0 ? "down" : "up";
+
+    dc.send(
+      JSON.stringify({
+        type: "scroll",
+        payload: { direction: dir },
+      })
+    );
+  }
+
   function handleKeyDown(event: KeyboardEvent) {
     if (inputLockedRef.current) return;
     const dc = dataChannelRef.current;
@@ -99,6 +116,7 @@ const Display: React.FC = () => {
     if (!listenersAttachedRef.current && videoRef.current) {
       videoRef.current.addEventListener("mousemove", handleMouseMove);
       videoRef.current.addEventListener("mousedown", handleMouseDown);
+      videoRef.current.addEventListener("wheel", handleScroll);
       window.addEventListener("keydown", handleKeyDown);
       listenersAttachedRef.current = true;
     }
@@ -147,6 +165,7 @@ const Display: React.FC = () => {
       if (video && listenersAttachedRef.current) {
         video.removeEventListener("mousemove", handleMouseMove);
         video.removeEventListener("mousedown", handleMouseDown);
+        video.removeEventListener("wheel", handleScroll);
         listenersAttachedRef.current = false;
       }
       window.removeEventListener("keydown", handleKeyDown);
