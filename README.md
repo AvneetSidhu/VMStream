@@ -26,8 +26,8 @@ You will also need the following environment variables:
 |------------|--------------------------------------------------|----------------------------|
 | LOG_LEVEL  | Sets the logging verbosity (e.g., debug, info) | debug                     |
 | JWT_SECRET | Secret key for signing JSON Web Tokens          | your-secret-key-here      |
-| WIDTH      | Width of the application viewport              | 1280                      |
-| HEIGHT     | Height of the application viewport             | 720                       |
+| WIDTH      | Width of stream viewport             | 1280                      |
+| HEIGHT     | Height of the stream viewport             | 720                       |
 | TAILNET    | Tailnet IP of the machine to be streamed       | 100.xx.xxx.xxx
 
 Lastly, to avoid having to port-forward or pay for hosting, you can run this application within a virtual machine that you can connect to using tailscale. Simply add the vm or device you plan to stream to a tailnet and connect via the ip address or magicDNS.
