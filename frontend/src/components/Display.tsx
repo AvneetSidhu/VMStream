@@ -82,6 +82,23 @@ const Display: React.FC = () => {
     );
   }
 
+  function handleScroll(event: WheelEvent) {
+    event.preventDefault();
+    if (inputLockedRef.current) return;
+    const dc = dataChannelRef.current;
+    const video = videoRef.current;
+    if (!video || !dc || dc.readyState !== "open") return;
+
+    const dir = event.deltaY > 0 ? "down" : "up";
+
+    dc.send(
+      JSON.stringify({
+        type: "scroll",
+        payload: { direction: dir },
+      })
+    );
+  }
+
   function handleKeyDown(event: KeyboardEvent) {
     if (inputLockedRef.current) return;
     const dc = dataChannelRef.current;
@@ -139,23 +156,6 @@ const Display: React.FC = () => {
         console.error("Failed to enter full screen:", err);
       });
     }
-  }
-
-  function handleScroll(event: WheelEvent) {
-    event.preventDefault();
-    if (inputLockedRef.current) return;
-    const dc = dataChannelRef.current;
-    const video = videoRef.current;
-    if (!video || !dc || dc.readyState !== "open") return;
-
-    const dir = event.deltaY > 0 ? 1 : -1;
-
-    dc.send(
-      JSON.stringify({
-        type: "scroll",
-        payload: { direction: dir },
-      })
-    );
   }
 
   useEffect(() => {
