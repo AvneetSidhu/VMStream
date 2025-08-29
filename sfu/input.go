@@ -42,6 +42,10 @@ func handleMouseInput(x float64, y float64, action string) {
 	}
 }
 
+func handleScrollInput(direction string) {
+	robotgo.ScrollDir(1, direction)
+}
+
 func handleKeyboardInput(key string) {
 	robotgo.KeyPress(key)
 	logger.Debug("Handled keyboard input", zap.String("key", key))
