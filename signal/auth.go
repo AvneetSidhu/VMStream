@@ -60,7 +60,7 @@ func issueRefreshTokenCookie(clientID string) (http.Cookie, error) {
 		Value:   refreshTokenString,
 		Path:    "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(24 * time.Hour),
 	}
