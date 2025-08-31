@@ -7,7 +7,7 @@ VMStream is a self-hosted, real-time VM streaming platform with authentication a
 
 ## Usage:
 
-Clone the 'host-frontend' branch of the repo into the vm you want to stream and run: `go build` in the root of the project to compile. The resulting executable is the server that will run inside the virtual machine that will be streamed. This branch contains a frontend that is hosted by the sfu server itself. Usage will also require the vm to have its own ip address / exposure to the private network. My current set up uses a tailnet and ACLs to expose the VM to users I want to grant access to.
+Clone the main branch of the repo into the vm you want to stream and run: `go build` in the root of the project to compile. The resulting executable is the server that will run inside the virtual machine that will be streamed. This branch contains a frontend that is hosted by the sfu server itself. Usage will also require the vm to have its own ip address / be exposed to your private network. My current set up uses a tailnet and ACLs to expose the VM to users I want to grant access to.
 
 You will also need a way to provide audio and video packets to the SFU to be forwarded. This can be done easily using GStreamer which will capture both audio and video and forward them as RTP. Forward Audio to `port: 5004` and video to `port: 5006`. Each individual packet size should be lower than 1280 bytes, as it 1280 is Tailscale's MTU size, any bigger and you will experience fragmentation and packet loss.
 
@@ -30,7 +30,7 @@ You will also need the following environment variables:
 | HEIGHT     | Height of the stream viewport             | 720                       |
 | TAILNET    | Tailnet IP of the machine to be streamed       | 100.xx.xxx.xxx
 
-Lastly, to avoid having to port-forward or pay for hosting, you can run this application within a virtual machine that you can connect to using tailscale. Simply add the vm or device you plan to stream to a tailnet and connect via the ip address or magicDNS.
+Lastly, to avoid having to port-forward or pay for hosting, you can run this application within a virtual machine that you can connect to using tailscale. Simply add the vm or device you plan to stream to a tailnet as a standalone device and connect via the ip address or magicDNS.
 
 ## How it's Made:
 
