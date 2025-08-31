@@ -15,6 +15,7 @@ const Display: React.FC = () => {
   const [inputLocked, setInputLocked] = useState(false);
   const inputLockedRef = useRef(false);
   const listenersAttachedRef = useRef(false);
+  const [mouseDown, setMouseDown] = useState(false);
 
   useEffect(() => {
     inputLockedRef.current = inputLocked;
@@ -52,7 +53,12 @@ const Display: React.FC = () => {
     dc.send(
       JSON.stringify({
         type: "mouse",
-        payload: { x: clampedX, y: clampedY, action: "move", deltaY: "" },
+        payload: {
+          x: clampedX,
+          y: clampedY,
+          action: "move",
+          dragging: mouseDown,
+        },
       })
     );
   }
@@ -74,12 +80,21 @@ const Display: React.FC = () => {
         ? "middle-click"
         : "right-click";
 
+    setMouseDown(true);
     dc.send(
       JSON.stringify({
         type: "mouse",
-        payload: { x: normalizedX, y: normalizedY, action: button, deltaY: "" },
+        payload: { x: normalizedX, y: normalizedY, action: button },
       })
     );
+  }
+
+  function handleMouseUp() {
+    if (inputLockedRef.current) return;
+    const dc = dataChannelRef.current;
+    const video = videoRef.current;
+    if (!video || !dataChannelRef || dc?.readyState !== "open") return;
+    setMouseDown(false);
   }
 
   function handleScroll(event: WheelEvent) {
@@ -116,6 +131,7 @@ const Display: React.FC = () => {
     if (!listenersAttachedRef.current && videoRef.current) {
       videoRef.current.addEventListener("mousemove", handleMouseMove);
       videoRef.current.addEventListener("mousedown", handleMouseDown);
+      videoRef.current.addEventListener("mouseup", handleMouseUp);
       videoRef.current.addEventListener("wheel", handleScroll);
       window.addEventListener("keydown", handleKeyDown);
       listenersAttachedRef.current = true;

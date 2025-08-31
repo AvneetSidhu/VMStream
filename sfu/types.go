@@ -70,6 +70,7 @@ type MouseInputPayload struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 	Action string `json:"action"`
+	Dragging string `json:"dragging"`
 }
 
 type ScrollInputPayload struct {
