@@ -26,12 +26,17 @@ func parsePayload(data []byte, v interface{}) error {
 	return nil
 }
 
-func handleMouseInput(x float64, y float64, action string) {
+func handleMouseInput(x float64, y float64, action string, dragging bool) {
 	actualX := int(float64(width) * x)
 	actualY := int(float64(height) * y)
 
 	switch action {
 	case "move":
+		if dragging {
+			robotgo.MouseDown()
+		} else {
+			robotgo.MouseUp()
+		}
 		robotgo.Move(actualX, actualY)
 	case "left-click":
 		robotgo.Click("left")

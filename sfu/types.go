@@ -70,6 +70,7 @@ type MouseInputPayload struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 	Action string `json:"action"`
+	Dragging bool `json:"dragging"`
 }
 
 type ScrollInputPayload struct {
@@ -388,7 +389,7 @@ func (b *Broadcaster) handleInput(dc *webrtc.DataChannel, clientID string) {
 		case "mouse":
 			var payload MouseInputPayload
 			parsePayload(message.Payload, &payload)
-			handleMouseInput(payload.X, payload.Y, payload.Action)
+			handleMouseInput(payload.X, payload.Y, payload.Action, payload.Dragging)
 		case "scroll":
 			var payload ScrollInputPayload
 			parsePayload(message.Payload, &payload)
