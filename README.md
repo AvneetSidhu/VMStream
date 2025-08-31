@@ -81,11 +81,9 @@ Audio and video are ingested on ports 5004 and 5006, respectively. GStreamer str
 User inputs (keyboard, mouse, etc.) are sent as discrete events over a WebRTC data channel. Clients can also send “take control” requests via this channel. The Broadcaster verifies whether clients are currently the controller before injecting the input into the VM. The same data channel is used to broadcast an updated list of connected clients whenever someone joins or leaves the session.
 ## UI
 
-The frontend is served by by VMStream from within the VM it is running on. This way I didn't have to worry about deploying the frontend and backend separately.
+The frontend is served by by VMStream from within the VM it is running on using files in the static directory. The ui contains a connect button that initiates the webrtc handshake, a 'take mouse' button that gives a user control over the vm, a lock mouse button that will stop taking input from the user, a full screen button and lastly a volume slider.
 
-
-<img width="767" height="398" alt="image" src="https://github.com/user-attachments/assets/1a067066-bde5-4158-8065-56b356a0e915" />
-<img width="767" height="398" alt="image" src="https://github.com/user-attachments/assets/7d5ea3b9-45ab-4d6b-88e4-9cd28d4689ba" />
+<img width="767" height="398" alt="image" src="https://github.com/AvneetSidhu/VMStream/blob/gif/gif/gif.gif" />
 
 ## To-do
 
