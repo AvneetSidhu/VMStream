@@ -15,7 +15,7 @@ const Display: React.FC = () => {
   const [inputLocked, setInputLocked] = useState(false);
   const inputLockedRef = useRef(false);
   const listenersAttachedRef = useRef(false);
-  const [mouseDown, setMouseDown] = useState(false);
+  var mouseDown = false;
 
   useEffect(() => {
     inputLockedRef.current = inputLocked;
@@ -80,7 +80,7 @@ const Display: React.FC = () => {
         ? "middle-click"
         : "right-click";
     console.log("mouse is down");
-    setMouseDown(true);
+    mouseDown = true;
     dc.send(
       JSON.stringify({
         type: "mouse",
@@ -95,7 +95,7 @@ const Display: React.FC = () => {
     const video = videoRef.current;
     if (!video || !dataChannelRef || dc?.readyState !== "open") return;
     console.log("mouse is up");
-    setMouseDown(false);
+    mouseDown = false;
   }
 
   function handleScroll(event: WheelEvent) {
