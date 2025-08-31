@@ -33,8 +33,9 @@ func handleMouseInput(x float64, y float64, action string, dragging bool) {
 	switch action {
 	case "move":
 		if dragging {
-			robotgo.DragSmooth(actualX, actualY)
-			return
+			robotgo.MouseDown()
+		} else {
+			robotgo.MouseUp()
 		}
 		robotgo.Move(actualX, actualY)
 	case "left-click":
