@@ -79,7 +79,7 @@ const Display: React.FC = () => {
         : event.button === 1
         ? "middle-click"
         : "right-click";
-
+    console.log("mouse is down");
     setMouseDown(true);
     dc.send(
       JSON.stringify({
@@ -94,6 +94,7 @@ const Display: React.FC = () => {
     const dc = dataChannelRef.current;
     const video = videoRef.current;
     if (!video || !dataChannelRef || dc?.readyState !== "open") return;
+    console.log("mouse is up");
     setMouseDown(false);
   }
 
