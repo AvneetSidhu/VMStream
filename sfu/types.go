@@ -108,7 +108,6 @@ func (b *Broadcaster) AddClient(client *Client) {
 	client.done = make(chan struct{})
 
 	go func() {
-		const audioClockRate = 48000
 		for {
 			select {
 			case pkt, ok := <-client.audioChan:
@@ -126,14 +125,13 @@ func (b *Broadcaster) AddClient(client *Client) {
 	}()
 
 	go func() {
-	const videoClockRate = 90000
 	for {
 		select {
 		case pkt, ok := <-client.videoChan:
 			if !ok {
 				return
 			}
-			
+
 			_ = client.VideoTrack.WriteRTP(pkt)
 			atomic.StoreUint32(&client.LatestVideoPacketTime, pkt.Timestamp)
 		case <-client.done:
