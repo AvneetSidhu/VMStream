@@ -116,15 +116,15 @@ func (b *Broadcaster) AddClient(client *Client) {
 					return
 				}
 
-				delta := pkt.Timestamp - client.masterRTPStartTime
-				targetTime := client.masterWallClockTime.Add(
-					time.Duration(delta) * time.Second / audioClockRate,
-				)
+				// delta := pkt.Timestamp - client.masterRTPStartTime
+				// targetTime := client.masterWallClockTime.Add(
+				// 	time.Duration(delta) * time.Second / audioClockRate,
+				// )
 
-				sleep := time.Until(targetTime)
-				if sleep > 0 {
-					time.Sleep(sleep)
-				}
+				// sleep := time.Until(targetTime)
+				// if sleep > 0 {
+				// 	time.Sleep(sleep)
+				// }
 
 				_ = client.AudioTrack.WriteRTP(pkt)
 				atomic.StoreUint32(&client.LatestAudioPacketTime, pkt.Timestamp)
@@ -144,15 +144,15 @@ func (b *Broadcaster) AddClient(client *Client) {
 				return
 			}
 
-			delta := pkt.Timestamp - client.nonMasterRTPStartTime
-			targetTime := client.nonMasterWallClockTime.Add(
-				time.Duration(delta) * time.Second / videoClockRate,
-			)
+			// delta := pkt.Timestamp - client.nonMasterRTPStartTime
+			// targetTime := client.nonMasterWallClockTime.Add(
+			// 	time.Duration(delta) * time.Second / videoClockRate,
+			// )
 
-			sleep := time.Until(targetTime)
-			if sleep > 0 {
-				time.Sleep(sleep)
-			}
+			// sleep := time.Until(targetTime)
+			// if sleep > 0 {
+			// 	time.Sleep(sleep)
+			// }
 
 			_ = client.VideoTrack.WriteRTP(pkt)
 			atomic.StoreUint32(&client.LatestVideoPacketTime, pkt.Timestamp)
