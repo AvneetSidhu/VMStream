@@ -129,8 +129,11 @@ const Display: React.FC = () => {
     );
   }
 
+  const disableContextMenu = (e: MouseEvent) => e.preventDefault();
+
   function buttonClick() {
     if (!listenersAttachedRef.current && videoRef.current) {
+      videoRef.current.addEventListener("contextmenu", disableContextMenu);
       videoRef.current.addEventListener("mousemove", handleMouseMove);
       videoRef.current.addEventListener("mousedown", handleMouseDown);
       videoRef.current.addEventListener("mouseup", handleMouseUp);
@@ -184,6 +187,7 @@ const Display: React.FC = () => {
         video.removeEventListener("mousemove", handleMouseMove);
         video.removeEventListener("mousedown", handleMouseDown);
         video.removeEventListener("wheel", handleScroll);
+        video.removeEventListener("contextmenu", disableContextMenu);
         listenersAttachedRef.current = false;
       }
       window.removeEventListener("keydown", handleKeyDown);
