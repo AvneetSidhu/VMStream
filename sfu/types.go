@@ -108,22 +108,11 @@ func (b *Broadcaster) AddClient(client *Client) {
 	client.done = make(chan struct{})
 
 	go func() {
-		const audioClockRate = 48000
 		for {
 			select {
 			case pkt, ok := <-client.audioChan:
 				if !ok {
 					return
-				}
-
-				delta := pkt.Timestamp - client.masterRTPStartTime
-				targetTime := client.masterWallClockTime.Add(
-					time.Duration(delta) * time.Second / audioClockRate,
-				)
-
-				sleep := time.Until(targetTime)
-				if sleep > 0 {
-					time.Sleep(sleep)
 				}
 
 				_ = client.AudioTrack.WriteRTP(pkt)
@@ -136,22 +125,11 @@ func (b *Broadcaster) AddClient(client *Client) {
 	}()
 
 	go func() {
-	const videoClockRate = 90000
 	for {
 		select {
 		case pkt, ok := <-client.videoChan:
 			if !ok {
 				return
-			}
-
-			delta := pkt.Timestamp - client.nonMasterRTPStartTime
-			targetTime := client.nonMasterWallClockTime.Add(
-				time.Duration(delta) * time.Second / videoClockRate,
-			)
-
-			sleep := time.Until(targetTime)
-			if sleep > 0 {
-				time.Sleep(sleep)
 			}
 
 			_ = client.VideoTrack.WriteRTP(pkt)
