@@ -64,6 +64,7 @@ const Display: React.FC = () => {
   }
 
   function handleMouseDown(event: MouseEvent) {
+    event.preventDefault();
     if (inputLockedRef.current) return;
     const dc = dataChannelRef.current;
     const video = videoRef.current;
